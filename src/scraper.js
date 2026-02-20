@@ -18,8 +18,9 @@ async function scrapePrice(url) {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(3000);
+    const httpStatus = response ? response.status() : null;
 
     // Product title
     const titleEl = await page.$('#productTitle');
@@ -41,6 +42,25 @@ async function scrapePrice(url) {
     const parsed = parsePrice(priceRaw);
     const asin = extractAsin(url);
     const domain = extractDomain(url);
+    const pageTitle = await page.title();
+    const bodyText = (await page.textContent('body') || '').slice(0, 5000).toLowerCase();
+    const lowerTitle = String(pageTitle || '').toLowerCase();
+
+    let blockedSignal = false;
+    let blockedReason = null;
+    if (httpStatus === 429) {
+      blockedSignal = true;
+      blockedReason = 'http_429';
+    } else if (httpStatus === 503) {
+      blockedSignal = true;
+      blockedReason = 'http_503';
+    } else if (
+      /robot check|captcha|enter the characters|not a robot/.test(lowerTitle)
+      || /robot check|captcha|enter the characters|automated access|not a robot/.test(bodyText)
+    ) {
+      blockedSignal = true;
+      blockedReason = /robot check/.test(lowerTitle + bodyText) ? 'robot_check' : 'captcha';
+    }
 
     return {
       title,
@@ -49,6 +69,9 @@ async function scrapePrice(url) {
       asin,
       domain,
       url,
+      httpStatus,
+      blockedSignal,
+      blockedReason,
     };
   } finally {
     await browser.close();

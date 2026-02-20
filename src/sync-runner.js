@@ -3,6 +3,7 @@ const {
   claimDueProducts,
   getRecentPrices,
   insertPrice,
+  insertScrapeAttempt,
   updateProductById,
 } = require('./db');
 const {
@@ -15,6 +16,54 @@ const {
 
 function trimErrorMessage(value) {
   return String(value || 'Unknown error').slice(0, 500);
+}
+
+function isMissingScrapeAttemptSchemaError(err) {
+  return /scrape_attempts/i.test(String(err?.message || ''));
+}
+
+async function tryInsertScrapeAttempt(payload) {
+  try {
+    await insertScrapeAttempt(payload);
+  } catch (err) {
+    if (isMissingScrapeAttemptSchemaError(err)) {
+      return;
+    }
+    throw err;
+  }
+}
+
+function classifySyncError(err) {
+  const message = String(err?.message || 'Unknown error').toLowerCase();
+  const httpStatus = Number(err?.httpStatus) || null;
+  const blockedSignal = Boolean(err?.blockedSignal)
+    || message.includes('captcha')
+    || message.includes('robot check')
+    || message.includes('http_503')
+    || message.includes('http_429');
+
+  if (message.includes('timeout') || message.includes('timed out')) {
+    return { status: 'timeout', blockedSignal, httpStatus };
+  }
+  if (httpStatus === 503 || message.includes('http_503')) {
+    return { status: 'http_503', blockedSignal: true, httpStatus: 503 };
+  }
+  if (httpStatus === 429 || message.includes('http_429')) {
+    return { status: 'http_429', blockedSignal: true, httpStatus: 429 };
+  }
+  if (message.includes('robot check')) {
+    return { status: 'robot_check', blockedSignal: true, httpStatus };
+  }
+  if (message.includes('captcha')) {
+    return { status: 'captcha', blockedSignal: true, httpStatus };
+  }
+  if (message.includes('network') || message.includes('econn') || message.includes('enotfound')) {
+    return { status: 'network_error', blockedSignal, httpStatus };
+  }
+  if (message.includes('could not extract price')) {
+    return { status: 'no_price', blockedSignal, httpStatus };
+  }
+  return { status: 'other_error', blockedSignal, httpStatus };
 }
 
 async function runDueSync({ limit = 20 } = {}) {
@@ -41,7 +90,14 @@ async function runDueSync({ limit = 20 } = {}) {
     try {
       const result = await scrapePrice(product.url);
       if (!result.price) {
-        throw new Error('Could not extract price from the page.');
+        const error = new Error(
+          result.blockedSignal
+            ? `Blocked page detected (${result.blockedReason || 'challenge'})`
+            : 'Could not extract price from the page.',
+        );
+        error.httpStatus = result.httpStatus;
+        error.blockedSignal = Boolean(result.blockedSignal);
+        throw error;
       }
 
       await insertPrice({
@@ -74,6 +130,14 @@ async function runDueSync({ limit = 20 } = {}) {
       }
 
       await updateProductById(product.id, patch);
+      await tryInsertScrapeAttempt({
+        productId: product.id,
+        status: 'ok',
+        httpStatus: result.httpStatus,
+        blockedSignal: false,
+        price: result.price.numeric,
+        currency: result.price.currency,
+      });
 
       success += 1;
       items.push({
@@ -94,12 +158,21 @@ async function runDueSync({ limit = 20 } = {}) {
       const backoffMinutes = computeFailureBackoffMinutes(nextFailures);
       const nextScrapeAt = new Date(Date.now() + backoffMinutes * 60 * 1000).toISOString();
       const errorMessage = trimErrorMessage(err.message);
+      const classified = classifySyncError(err);
 
       await updateProductById(product.id, {
         tier: nextTier,
         consecutive_failures: nextFailures,
         last_error: errorMessage,
         next_scrape_at: nextScrapeAt,
+      });
+      await tryInsertScrapeAttempt({
+        productId: product.id,
+        status: classified.status,
+        httpStatus: classified.httpStatus,
+        blockedSignal: classified.blockedSignal,
+        errorCode: classified.status,
+        errorMessage,
       });
 
       failed += 1;
@@ -122,4 +195,3 @@ async function runDueSync({ limit = 20 } = {}) {
 }
 
 module.exports = { runDueSync };
-

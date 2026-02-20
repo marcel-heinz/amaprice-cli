@@ -59,6 +59,7 @@ Worker behavior:
 - claims due products
 - scrapes with Playwright
 - writes `price_history`
+- writes `scrape_attempts` telemetry for block/error monitoring
 - resets/backs off on failures
 - updates next run with jitter
 
@@ -68,7 +69,37 @@ Run this SQL in Supabase SQL Editor:
 
 `supabase/migrations/20260220_add_tier_scheduler.sql`
 
+`supabase/migrations/20260220_add_scrape_attempts.sql`
+
 It adds tier fields, indexes, and the `claim_due_products` RPC for safe worker claiming.
+
+## Block Detection Queries
+
+Products currently failing or likely blocked:
+
+```sql
+select asin, tier, consecutive_failures, last_error, last_scraped_at, next_scrape_at
+from products
+where consecutive_failures >= 3
+   or last_error ilike '%captcha%'
+   or last_error ilike '%robot%'
+   or last_error ilike '%503%'
+order by consecutive_failures desc, next_scrape_at asc;
+```
+
+Hourly block-rate from telemetry:
+
+```sql
+select
+  date_trunc('hour', scraped_at) as hour,
+  count(*) as total,
+  sum(case when blocked_signal then 1 else 0 end) as blocked,
+  round(100.0 * sum(case when blocked_signal then 1 else 0 end) / nullif(count(*), 0), 2) as blocked_pct
+from scrape_attempts
+where scraped_at >= now() - interval '24 hours'
+group by 1
+order by 1 desc;
+```
 
 ## Local/Worker Environment
 
@@ -108,7 +139,7 @@ Lean marketing site is in `website/`.
 
 Steps:
 1. Import the repo in Vercel.
-2. Set **Root Directory** to `website`.
+2. Leave the project at repo root (deployment is controlled by root `vercel.json`).
 3. Deploy.
 4. Add domain `amaprice.sh` in Vercel Domains and assign to this project.
 5. Set `www.amaprice.sh` redirect to `amaprice.sh`.

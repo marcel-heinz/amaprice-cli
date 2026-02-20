@@ -25,6 +25,12 @@ function isMissingSchedulingSchema(error) {
   return code === '42703' || code === 'PGRST204' || /column .* does not exist/i.test(message);
 }
 
+function isMissingRelation(error) {
+  const code = String(error?.code || '');
+  const message = String(error?.message || '');
+  return code === '42P01' || code === 'PGRST205' || /relation .* does not exist/i.test(message);
+}
+
 /**
  * Upsert a product by ASIN. Returns the product row.
  */
@@ -249,6 +255,41 @@ async function claimDueProducts(limit = 20) {
   return products.map((p) => ({ ...p, next_scrape_at: lockUntil }));
 }
 
+async function insertScrapeAttempt({
+  productId,
+  status,
+  httpStatus = null,
+  blockedSignal = false,
+  errorCode = null,
+  errorMessage = null,
+  price = null,
+  currency = null,
+}) {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from('scrape_attempts')
+    .insert({
+      product_id: productId,
+      status,
+      http_status: httpStatus,
+      blocked_signal: blockedSignal,
+      error_code: errorCode,
+      error_message: errorMessage,
+      price,
+      currency,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    if (isMissingRelation(error)) {
+      throw new Error(`Supabase scrape_attempts error: ${error.message}. Did you run the scrape attempts migration?`);
+    }
+    throw new Error(`Supabase scrape_attempts error: ${error.message}`);
+  }
+  return data;
+}
+
 module.exports = {
   getClient,
   upsertProduct,
@@ -260,4 +301,5 @@ module.exports = {
   updateProductByAsin,
   getRecentPrices,
   claimDueProducts,
+  insertScrapeAttempt,
 };
