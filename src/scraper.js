@@ -15,7 +15,16 @@ const PRICE_SELECTORS = [
  * Returns { title, priceRaw, price, asin, domain, url }
  */
 async function scrapePrice(url) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    chromiumSandbox: false,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+    ],
+  });
   try {
     const page = await browser.newPage();
     const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });

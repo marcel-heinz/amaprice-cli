@@ -36,6 +36,15 @@ async function tryInsertScrapeAttempt(payload) {
 function classifySyncError(err) {
   const message = String(err?.message || 'Unknown error').toLowerCase();
   const httpStatus = Number(err?.httpStatus) || null;
+
+  if (
+    message.includes('browsertype.launch')
+    || message.includes('target page, context or browser has been closed')
+    || message.includes('failed to launch')
+  ) {
+    return { status: 'other_error', blockedSignal: false, httpStatus };
+  }
+
   const blockedSignal = Boolean(err?.blockedSignal)
     || message.includes('captcha')
     || message.includes('robot check')
@@ -57,7 +66,7 @@ function classifySyncError(err) {
   if (message.includes('captcha')) {
     return { status: 'captcha', blockedSignal: true, httpStatus };
   }
-  if (message.includes('network') || message.includes('econn') || message.includes('enotfound')) {
+  if (message.includes('econn') || message.includes('enotfound') || message.includes('network error')) {
     return { status: 'network_error', blockedSignal, httpStatus };
   }
   if (message.includes('could not extract price')) {
