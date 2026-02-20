@@ -1,3 +1,5 @@
+import WorkerHealthCard from "./components/worker-health-card";
+
 export default function Home() {
   return (
     <>
@@ -136,6 +138,14 @@ export default function Home() {
             </a>
           </div>
         </section>
+
+        <WorkerHealthCard />
+
+        <footer className="site-footer">
+          <p>
+            Built for terminal-first tracking on <code>amaprice.sh</code>.
+          </p>
+        </footer>
       </main>
     </>
   );

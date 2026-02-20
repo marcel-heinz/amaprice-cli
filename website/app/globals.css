@@ -222,9 +222,109 @@ pre {
   color: var(--muted);
 }
 
+.worker-health {
+  margin-top: 1.4rem;
+}
+
+.health-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.9rem;
+}
+
+.health-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 0.32rem 0.65rem;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: #f2f2ec;
+}
+
+.health-badge.healthy {
+  color: #0a5936;
+  background: #e4f8eb;
+  border-color: #b8e5ca;
+}
+
+.health-badge.degraded {
+  color: #6f4b00;
+  background: #fff4dd;
+  border-color: #f3d89c;
+}
+
+.health-badge.blocked {
+  color: #7f221f;
+  background: #ffe9e6;
+  border-color: #f0b7b1;
+}
+
+.health-badge.idle_or_stuck {
+  color: #2f385f;
+  background: #edf1ff;
+  border-color: #c8d2ff;
+}
+
+.health-grid {
+  display: grid;
+  gap: 0.72rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 0.7rem;
+  background: #fffefa;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.metric-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.metric strong {
+  font-size: 1.12rem;
+}
+
+.health-note {
+  margin-top: 0.82rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.health-error {
+  color: #8f2f2d;
+}
+
+.site-footer {
+  margin: 1.45rem 0 0.4rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.9rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.site-footer p {
+  margin: 0;
+}
+
 @media (max-width: 840px) {
   .cmd-grid,
-  .value-grid {
+  .value-grid,
+  .health-grid {
     grid-template-columns: 1fr;
   }
 

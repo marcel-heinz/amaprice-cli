@@ -73,6 +73,8 @@ Run this SQL in Supabase SQL Editor:
 
 `supabase/migrations/20260220_add_worker_health_view.sql`
 
+`supabase/migrations/20260220_grant_worker_health_select.sql`
+
 It adds tier fields, indexes, telemetry, and worker health rollups.
 
 ## Block Detection Queries
@@ -151,9 +153,12 @@ Lean marketing site is a Next.js app in `website/`.
 Steps:
 1. Import the repo in Vercel.
 2. Leave the project at repo root (deployment is controlled by root `vercel.json`).
-3. Deploy.
-4. Add domain `amaprice.sh` in Vercel Domains and assign to this project.
-5. Set `www.amaprice.sh` redirect to `amaprice.sh`.
+3. Set website env vars:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. Deploy.
+5. Add domain `amaprice.sh` in Vercel Domains and assign to this project.
+6. Set `www.amaprice.sh` redirect to `amaprice.sh`.
 
 Local website development:
 
