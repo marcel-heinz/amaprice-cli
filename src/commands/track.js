@@ -1,13 +1,15 @@
 const { normalizeAmazonInput } = require('../url');
+const { resolveCliInput } = require('../input');
 const { scrapePrice } = require('../scraper');
 const { upsertProduct, insertPrice } = require('../db');
 
 module.exports = function (program) {
   program
-    .command('track <url-or-asin>')
+    .command('track [input...]')
     .description('Save product + current price to Supabase')
     .option('--json', 'Output as JSON')
-    .action(async (input, opts) => {
+    .action(async (inputParts, opts) => {
+      const input = await resolveCliInput(inputParts);
       const normalized = normalizeAmazonInput(input);
       if (!normalized) {
         console.error('Error: Input must be an Amazon product URL or a valid ASIN.');

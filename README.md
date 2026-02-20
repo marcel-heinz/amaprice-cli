@@ -14,6 +14,8 @@ npm install -g amaprice
 # One-shot price lookup
 amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6"
 amaprice price B0DZ5P7JD6
+amaprice price
+# then paste full Amazon URL or ASIN when prompted
 
 # JSON output (for scripts / AI agents)
 amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6" --json
@@ -21,6 +23,8 @@ amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6" --json
 # Track a product's price over time
 amaprice track "https://www.amazon.de/dp/B0DZ5P7JD6"
 amaprice track B0DZ5P7JD6
+amaprice track
+# then paste full Amazon URL or ASIN when prompted
 
 # View price history
 amaprice history B0DZ5P7JD6
@@ -33,14 +37,14 @@ amaprice list
 
 | Command | Description |
 |---|---|
-| `amaprice price <url\|asin>` | One-shot price lookup |
-| `amaprice track <url\|asin>` | Track a product's price |
+| `amaprice price [url\|asin]` | One-shot price lookup (or prompt if omitted) |
+| `amaprice track [url\|asin]` | Track a product's price (or prompt if omitted) |
 | `amaprice history <url\|asin>` | Show price history (`--limit N`, default 30) |
 | `amaprice list` | Show all tracked products with latest price |
 
 All commands support `--json` for machine-readable output.
 
-When passing Amazon URLs that contain query parameters (`?` / `&`), always wrap the URL in quotes so your shell treats it as a single argument.
+If your URL contains query parameters (`?` / `&`), either wrap it in quotes or run the command without an argument and paste the full URL into the prompt.
 
 ## Community Price Database
 

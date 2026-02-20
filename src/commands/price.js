@@ -1,13 +1,15 @@
 const { normalizeAmazonInput } = require('../url');
+const { resolveCliInput } = require('../input');
 const { scrapePrice } = require('../scraper');
 const { upsertProduct, insertPrice } = require('../db');
 
 module.exports = function (program) {
   program
-    .command('price <url-or-asin>')
+    .command('price [input...]')
     .description('One-shot price lookup for an Amazon product URL or ASIN')
     .option('--json', 'Output as JSON')
-    .action(async (input, opts) => {
+    .action(async (inputParts, opts) => {
+      const input = await resolveCliInput(inputParts);
       const normalized = normalizeAmazonInput(input);
       if (!normalized) {
         console.error('Error: Input must be an Amazon product URL or a valid ASIN.');
