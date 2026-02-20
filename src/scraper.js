@@ -17,6 +17,46 @@ const CONTAINER_SAFE_ARGS = [
   '--disable-gpu',
 ];
 
+const DOMAIN_PREFS = {
+  'amazon.de': { currency: 'EUR' },
+  'amazon.com': { currency: 'USD' },
+  'amazon.co.uk': { currency: 'GBP' },
+  'amazon.fr': { currency: 'EUR' },
+  'amazon.it': { currency: 'EUR' },
+  'amazon.es': { currency: 'EUR' },
+  'amazon.nl': { currency: 'EUR' },
+  'amazon.co.jp': { currency: 'JPY' },
+  'amazon.ca': { currency: 'CAD' },
+  'amazon.com.au': { currency: 'AUD' },
+  'amazon.in': { currency: 'INR' },
+  'amazon.com.br': { currency: 'BRL' },
+};
+
+function getDomainPrefs(domain) {
+  return DOMAIN_PREFS[domain] || { currency: null };
+}
+
+async function createDomainContext(browser, domain) {
+  const prefs = getDomainPrefs(domain);
+  const context = await browser.newContext();
+
+  if (prefs.currency) {
+    try {
+      await context.addCookies([{
+        name: 'i18n-prefs',
+        value: prefs.currency,
+        domain: `.${domain}`,
+        path: '/',
+        secure: true,
+      }]);
+    } catch {
+      // Best effort only; scraping can continue without this cookie.
+    }
+  }
+
+  return { context, prefs };
+}
+
 async function launchBrowser() {
   const attempts = [
     {
@@ -48,9 +88,11 @@ async function launchBrowser() {
  * Returns { title, priceRaw, price, asin, domain, url }
  */
 async function scrapePrice(url) {
+  const domain = extractDomain(url);
   const browser = await launchBrowser();
   try {
-    const page = await browser.newPage();
+    const { context, prefs } = await createDomainContext(browser, domain);
+    const page = await context.newPage();
     const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(3000);
     const httpStatus = response ? response.status() : null;
@@ -72,9 +114,8 @@ async function scrapePrice(url) {
       }
     }
 
-    const parsed = parsePrice(priceRaw);
+    const parsed = parsePrice(priceRaw, prefs.currency);
     const asin = extractAsin(url);
-    const domain = extractDomain(url);
     const pageTitle = await page.title();
     const bodyText = (await page.textContent('body') || '').slice(0, 5000).toLowerCase();
     const lowerTitle = String(pageTitle || '').toLowerCase();

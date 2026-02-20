@@ -75,7 +75,9 @@ Run this SQL in Supabase SQL Editor:
 
 `supabase/migrations/20260220_grant_worker_health_select.sql`
 
-It adds tier fields, indexes, telemetry, and worker health rollups.
+`supabase/migrations/20260220_add_price_history_currency.sql`
+
+These migrations add tier fields, indexes, telemetry, worker health rollups, and `price_history.currency`.
 
 ## Block Detection Queries
 

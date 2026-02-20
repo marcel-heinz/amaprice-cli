@@ -1,33 +1,48 @@
-// Currency symbol → ISO code mapping
+// Currency symbol -> ISO code mapping (longest symbol first for disambiguation).
 const CURRENCY_MAP = {
+  'CA$': 'CAD',
+  'A$': 'AUD',
+  'R$': 'BRL',
   '€': 'EUR',
   '$': 'USD',
   '£': 'GBP',
   '¥': 'JPY',
   '₹': 'INR',
-  'R$': 'BRL',
-  'A$': 'AUD',
-  'CA$': 'CAD',
 };
 
+const CURRENCY_CODES = ['EUR', 'USD', 'GBP', 'JPY', 'INR', 'BRL', 'AUD', 'CAD'];
+const CURRENCY_SYMBOL_BY_CODE = Object.entries(CURRENCY_MAP).reduce((acc, [symbol, code]) => {
+  if (!acc[code]) acc[code] = symbol;
+  return acc;
+}, {});
+
+function detectCurrency(trimmed) {
+  for (const [symbol, code] of Object.entries(CURRENCY_MAP)) {
+    if (trimmed.includes(symbol)) {
+      return code;
+    }
+  }
+
+  const upper = trimmed.toUpperCase();
+  for (const code of CURRENCY_CODES) {
+    if (new RegExp(`(^|[^A-Z])${code}([^A-Z]|$)`).test(upper)) {
+      return code;
+    }
+  }
+  return null;
+}
+
 /**
- * Parse a price string like "€249,00" or "$1,299.99" into structured data.
+ * Parse a price string like "EUR 249,00" or "$1,299.99" into structured data.
  * Returns { display, numeric, currency } or null if unparseable.
  */
-function parsePrice(raw) {
+function parsePrice(raw, fallbackCurrency = null) {
   if (!raw || typeof raw !== 'string') return null;
 
   const trimmed = raw.trim();
 
-  // Detect currency
-  let currency = null;
-  for (const [symbol, code] of Object.entries(CURRENCY_MAP)) {
-    if (trimmed.includes(symbol)) {
-      currency = code;
-      break;
-    }
-  }
-  currency = currency || 'EUR';
+  // Detect currency from symbols/codes. If absent, use caller fallback.
+  const currency = detectCurrency(trimmed) || (fallbackCurrency ? String(fallbackCurrency).toUpperCase() : null);
 
   // Extract numeric portion: strip everything except digits, commas, dots
   const numStr = trimmed.replace(/[^\d.,]/g, '');
@@ -63,8 +78,16 @@ function parsePrice(raw) {
  * Format a numeric price with currency for display.
  */
 function formatPrice(numeric, currency = 'EUR') {
-  const symbol = Object.entries(CURRENCY_MAP).find(([, c]) => c === currency)?.[0] || '€';
-  if (currency === 'EUR') {
+  const normalizedCurrency = String(currency || '').toUpperCase();
+  const symbol = CURRENCY_SYMBOL_BY_CODE[normalizedCurrency] || null;
+
+  if (!symbol) {
+    return normalizedCurrency
+      ? `${normalizedCurrency} ${numeric.toFixed(2)}`
+      : numeric.toFixed(2);
+  }
+
+  if (normalizedCurrency === 'EUR') {
     return `${symbol}${numeric.toFixed(2).replace('.', ',')}`;
   }
   return `${symbol}${numeric.toFixed(2)}`;
