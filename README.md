@@ -71,7 +71,9 @@ Run this SQL in Supabase SQL Editor:
 
 `supabase/migrations/20260220_add_scrape_attempts.sql`
 
-It adds tier fields, indexes, and the `claim_due_products` RPC for safe worker claiming.
+`supabase/migrations/20260220_add_worker_health_view.sql`
+
+It adds tier fields, indexes, telemetry, and worker health rollups.
 
 ## Block Detection Queries
 
@@ -99,6 +101,12 @@ from scrape_attempts
 where scraped_at >= now() - interval '24 hours'
 group by 1
 order by 1 desc;
+```
+
+Single-row worker health view:
+
+```sql
+select * from worker_health;
 ```
 
 ## Local/Worker Environment
