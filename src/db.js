@@ -1,12 +1,11 @@
 const { createClient } = require('@supabase/supabase-js');
-const { requireConfig } = require('./config');
+const { SUPABASE_URL, SUPABASE_KEY } = require('./config');
 
 let _client = null;
 
 function getClient() {
   if (_client) return _client;
-  const config = requireConfig();
-  _client = createClient(config.supabaseUrl, config.supabaseKey);
+  _client = createClient(SUPABASE_URL, SUPABASE_KEY);
   return _client;
 }
 
@@ -43,7 +42,6 @@ async function insertPrice({ productId, price, currency }) {
  */
 async function getPriceHistory(asin, limit = 30) {
   const supabase = getClient();
-  // First get the product
   const { data: product, error: pErr } = await supabase
     .from('products')
     .select('id, title, url')
@@ -73,7 +71,6 @@ async function listProducts() {
     .order('created_at', { ascending: false });
   if (error) throw new Error(`Supabase products error: ${error.message}`);
 
-  // Fetch latest price for each product
   const results = [];
   for (const product of products) {
     const { data: prices } = await supabase

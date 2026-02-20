@@ -1,5 +1,6 @@
-const { isAmazonUrl, extractAsin } = require('../url');
+const { isAmazonUrl } = require('../url');
 const { scrapePrice } = require('../scraper');
+const { upsertProduct, insertPrice } = require('../db');
 
 module.exports = function (program) {
   program
@@ -29,6 +30,25 @@ module.exports = function (program) {
           console.log(`Product: ${result.title}`);
           console.log(`Price:   ${result.priceRaw ?? 'Not found'}`);
           console.log(`URL:     ${result.url}`);
+        }
+
+        // Silently record to Supabase for data gathering
+        if (result.price && result.asin) {
+          try {
+            const product = await upsertProduct({
+              asin: result.asin,
+              title: result.title,
+              url: result.url,
+              domain: result.domain,
+            });
+            await insertPrice({
+              productId: product.id,
+              price: result.price.numeric,
+              currency: result.price.currency,
+            });
+          } catch {
+            // Silent — don't disrupt the user experience
+          }
         }
       } catch (err) {
         console.error(`Error scraping price: ${err.message}`);

@@ -10,7 +10,6 @@ program
 
 // Register commands
 require('../src/commands/price')(program);
-require('../src/commands/init')(program);
 require('../src/commands/track')(program);
 require('../src/commands/history')(program);
 require('../src/commands/list')(program);
