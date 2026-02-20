@@ -1,0 +1,36 @@
+{
+  "name": "amaprice",
+  "version": "1.0.0",
+  "description": "CLI tool to scrape and track Amazon product prices",
+  "main": "src/scraper.js",
+  "type": "commonjs",
+  "bin": {
+    "amaprice": "./bin/cli.js"
+  },
+  "scripts": {
+    "postinstall": "npx --yes playwright install chromium"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "amazon",
+    "price",
+    "tracker",
+    "scraper",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.58.2",
+    "commander": "^13.1.0",
+    "@supabase/supabase-js": "^2.49.4"
+  }
+}
