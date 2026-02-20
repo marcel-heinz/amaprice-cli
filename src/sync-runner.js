@@ -15,7 +15,7 @@ const {
 } = require('./tiering');
 
 function trimErrorMessage(value) {
-  return String(value || 'Unknown error').slice(0, 500);
+  return String(value || 'Unknown error').slice(0, 4000);
 }
 
 function isMissingScrapeAttemptSchemaError(err) {

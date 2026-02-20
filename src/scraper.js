@@ -10,21 +10,45 @@ const PRICE_SELECTORS = [
   '#priceblock_dealprice',
 ];
 
+const CONTAINER_SAFE_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-gpu',
+];
+
+async function launchBrowser() {
+  const attempts = [
+    {
+      headless: true,
+      channel: 'chromium',
+      chromiumSandbox: false,
+      args: CONTAINER_SAFE_ARGS,
+    },
+    {
+      headless: true,
+      chromiumSandbox: false,
+      args: CONTAINER_SAFE_ARGS,
+    },
+  ];
+
+  let lastError = null;
+  for (const opts of attempts) {
+    try {
+      return await chromium.launch(opts);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('Failed to launch Chromium.');
+}
+
 /**
  * Scrape product title and price from an Amazon URL.
  * Returns { title, priceRaw, price, asin, domain, url }
  */
 async function scrapePrice(url) {
-  const browser = await chromium.launch({
-    headless: true,
-    chromiumSandbox: false,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-    ],
-  });
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
