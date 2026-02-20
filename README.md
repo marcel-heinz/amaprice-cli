@@ -116,7 +116,7 @@ For production background workers, prefer the Supabase **service role key**.
 
 This repo includes:
 - `src/worker.js` (long-running loop worker)
-- `railway.json` (`npm run worker`)
+- `railway.json` + `Dockerfile` (Playwright-ready runtime)
 
 Steps:
 1. Create a Railway project from this repo.
@@ -124,8 +124,11 @@ Steps:
 3. Optional env vars:
    - `SYNC_INTERVAL_MINUTES=5`
    - `SYNC_LIMIT=20`
-4. Deploy.
-5. Confirm logs show `[worker] processed=...`.
+4. Ensure builder is Dockerfile (root `Dockerfile`).
+5. Deploy.
+6. Confirm logs show `[worker] processed=...`.
+
+If Railway still uses Railpack instead of Dockerfile, set builder to Dockerfile manually in Railway service settings and redeploy.
 
 One-shot run for testing:
 
@@ -135,7 +138,7 @@ npm run worker:once
 
 ## Vercel Website Deployment (`amaprice.sh`)
 
-Lean marketing site is in `website/`.
+Lean marketing site is a Next.js app in `website/`.
 
 Steps:
 1. Import the repo in Vercel.
@@ -143,6 +146,14 @@ Steps:
 3. Deploy.
 4. Add domain `amaprice.sh` in Vercel Domains and assign to this project.
 5. Set `www.amaprice.sh` redirect to `amaprice.sh`.
+
+Local website development:
+
+```bash
+cd website
+npm install
+npm run dev
+```
 
 ## Community Price Data
 
