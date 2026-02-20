@@ -38,6 +38,8 @@ amaprice list
 
 All commands support `--json` for machine-readable output.
 
+When passing Amazon URLs that contain query parameters (`?` / `&`), always wrap the URL in quotes so your shell treats it as a single argument.
+
 ## Community Price Database
 
 amaprice contributes anonymized price data (product title, ASIN, price, and timestamp) to a shared database. This means every lookup helps build a broader price history that benefits all users — the more people use amaprice, the richer the tracking data becomes for everyone. No personal or device information is collected.
