@@ -5,8 +5,14 @@ export default function Home() {
     <>
       <div className="backdrop" />
       <header className="topbar container">
-        <a className="brand" href="/">
-          amaprice
+        <a className="brand" href="/" aria-label="amaprice home">
+          <img
+            className="brand-logo"
+            src="/amaprice_logo.png"
+            alt="amaprice"
+            width="172"
+            height="49"
+          />
         </a>
         <nav>
           <a

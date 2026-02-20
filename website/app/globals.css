@@ -56,10 +56,15 @@ body {
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
-  color: var(--text);
-  font-weight: 700;
-  letter-spacing: 0.04em;
+}
+
+.brand-logo {
+  display: block;
+  width: clamp(8rem, 11vw, 10.75rem);
+  height: auto;
 }
 
 .link {
