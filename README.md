@@ -1,4 +1,4 @@
-# Armor Price: Price Tracking in Your Terminal
+# amaprice: Price Tracking in Your Terminal
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js >=18](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
