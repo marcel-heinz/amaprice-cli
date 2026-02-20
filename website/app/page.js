@@ -28,12 +28,12 @@ export default function Home() {
 
       <main className="container">
         <section className="hero">
-          <p className="kicker">Terminal-first price tracking</p>
-          <h1>Track Amazon prices fast. Build history automatically.</h1>
+          <p className="kicker">Terminal-first e-commerce price tracking</p>
+          <h1>Track Amazon and e-commerce prices fast from your terminal.</h1>
           <p className="lead">
             <code>amaprice</code> is a clean, open-source CLI for one-shot checks
-            and long-running tracking. Add a product once, then let
-            hourly/daily/weekly sync collect history in the background.
+            and long-running tracking across online stores. Add a product once,
+            then let hourly/daily/weekly sync keep a clear price timeline.
           </p>
 
           <div className="install-card">
@@ -96,10 +96,10 @@ export default function Home() {
               <p>No dashboard required. Paste URL/ASIN, get price, keep moving.</p>
             </article>
             <article>
-              <h3>Automatic history building</h3>
+              <h3>Tier-based background sync</h3>
               <p>
-                Products are synced by tier so users do not need to reopen each
-                product.
+                Products sync on schedule, so you do not need to reopen each
+                product manually.
               </p>
             </article>
             <article>

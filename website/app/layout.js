@@ -2,9 +2,9 @@ import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata = {
-  title: "amaprice - Amazon Price Tracking CLI",
+  title: "amaprice - Amazon & E-commerce Price Tracking",
   description:
-    "Track Amazon prices from the terminal. Open-source CLI with tiered background sync and shared price history.",
+    "Track Amazon and e-commerce prices from the terminal. Open-source CLI with tiered background sync and shared price history.",
   icons: {
     icon: [
       { url: "/favicon.ico" },
