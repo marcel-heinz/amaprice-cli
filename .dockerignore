@@ -1,0 +1,9 @@
+.git
+.github
+node_modules
+website/node_modules
+website/.next
+website/out
+npm-debug.log*
+*.log
+
