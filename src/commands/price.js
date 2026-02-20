@@ -1,7 +1,8 @@
 const { normalizeAmazonInput } = require('../url');
 const { resolveCliInput } = require('../input');
 const { scrapePrice } = require('../scraper');
-const { upsertProduct, insertPrice } = require('../db');
+const { upsertProduct, insertPrice, updateProductById } = require('../db');
+const { normalizeTier, computeNextScrapeAt } = require('../tiering');
 
 module.exports = function (program) {
   program
@@ -48,6 +49,15 @@ module.exports = function (program) {
               productId: product.id,
               price: result.price.numeric,
               currency: result.price.currency,
+            });
+            const tier = normalizeTier(product.tier, 'daily');
+            await updateProductById(product.id, {
+              last_price: result.price.numeric,
+              last_scraped_at: new Date().toISOString(),
+              consecutive_failures: 0,
+              last_error: null,
+              next_scrape_at: computeNextScrapeAt(tier),
+              last_price_change_at: new Date().toISOString(),
             });
           } catch {
             // Silent — don't disrupt the user experience

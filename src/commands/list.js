@@ -16,6 +16,10 @@ module.exports = function (program) {
             title: p.title,
             url: p.url,
             domain: p.domain,
+            tier: p.tier ?? 'daily',
+            tierMode: p.tier_mode ?? 'auto',
+            active: p.is_active ?? true,
+            nextScrapeAt: p.next_scrape_at ?? null,
             latestPrice: p.latestPrice ? parseFloat(p.latestPrice.price) : null,
             currency: p.latestPrice?.currency ?? null,
             lastScraped: p.latestPrice?.scraped_at ?? null,
@@ -30,7 +34,9 @@ module.exports = function (program) {
             const price = p.latestPrice
               ? formatPrice(parseFloat(p.latestPrice.price), p.latestPrice.currency)
               : 'N/A';
-            console.log(`  ${p.asin}  ${price}  ${p.title}`);
+            const tier = p.tier || 'daily';
+            const status = p.is_active === false ? 'paused' : tier;
+            console.log(`  ${p.asin}  ${price}  [${status}]  ${p.title}`);
           }
         }
       } catch (err) {

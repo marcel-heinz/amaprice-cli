@@ -1,99 +1,124 @@
-# amaprice: Price Tracking in Your Terminal
+# amaprice
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js >=18](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Playwright](https://img.shields.io/badge/Playwright-Chromium-2EAD33?logo=playwright&logoColor=white)](https://playwright.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
-[![npm version](https://img.shields.io/npm/v/amaprice?logo=npm)](https://www.npmjs.com/package/amaprice)
 
-`amaprice` is a CLI for fast product price lookup and tracking across major online stores, directly from your terminal.
+`amaprice` is a terminal-first CLI to check Amazon prices, track products, and build shared price history automatically.
 
-## What "AMA Price" Means
-
-**AMA Price** means **Ask Me Anything Price**.
-
-Current reality:
-- Amazon is fully supported today.
-- Walmart and other major stores are planned next.
-
-## Features
-
-- One-shot price lookup from product URL or ASIN.
-- Price tracking with timestamped history.
-- Product list with latest tracked price.
-- JSON output for scripts and AI agents (`--json`).
-- Prompt mode when input is omitted.
-- Shared community price database to improve market visibility over time.
-
-## Store Support
-
-| Store | Status | Notes |
-|---|---|---|
-| Amazon | ✅ | Implemented now |
-| Walmart | ❌ | Planned (next priority) |
-| eBay | ❌ | Planned |
-| Target | ❌ | Planned |
-| Best Buy | ❌ | Planned |
-| Newegg | ❌ | Planned |
-
-## Roadmap
-
-1. Walmart support.
-2. eBay and Target support.
-3. Best Buy and Newegg support.
-4. Additional major online stores.
-
-## Installation
+## Install
 
 ```bash
 npm install -g amaprice
 ```
 
-## Quick Start
+## Quickstart
 
 ```bash
-# 1) One-shot price lookup
-amaprice "https://www.amazon.de/dp/B0DZ5P7JD6"
-amaprice B0DZ5P7JD6
+# one-shot lookup
+amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6"
 
-# 2) Track a product (saves current price)
-amaprice track "https://www.amazon.de/dp/B0DZ5P7JD6"
-amaprice track B0DZ5P7JD6
+# start tracking with a tier
+amaprice track B0DZ5P7JD6 --tier daily
 
-# 3) View history
-amaprice history B0DZ5P7JD6
+# show history
+amaprice history B0DZ5P7JD6 --limit 30
 
-# 4) List tracked products
+# list tracked products
 amaprice list
 ```
 
-If you run a command without input, `amaprice` prompts you to paste a full product URL or ASIN.
-
-## Command Reference
+## Commands
 
 | Command | Description |
 |---|---|
 | `amaprice [url\|asin]` | Shortcut for `amaprice price [url\|asin]` |
-| `amaprice price [url\|asin]` | One-shot price lookup (or prompt if omitted) |
-| `amaprice track [url\|asin]` | Save product and current price (or prompt if omitted) |
-| `amaprice history <url\|asin>` | Show price history (`--limit N`, default 30) |
-| `amaprice list` | Show all tracked products with latest price |
+| `amaprice price [url\|asin]` | One-shot lookup and silent history insert |
+| `amaprice track [url\|asin]` | Track product + current price |
+| `amaprice history <url\|asin>` | Show history (`--limit N`) |
+| `amaprice list` | List tracked products + latest price |
+| `amaprice sync --limit <n>` | Run background sync for due products |
+| `amaprice tier <url\|asin> <hourly\|daily\|weekly>` | Set tier for tracked product |
 
-All commands support `--json` for machine-readable output.
+All commands support `--json`.
 
-If a URL contains query parameters (`?` / `&`), wrap it in quotes or run the command without an argument and paste the full URL into the prompt.
+## Tiered Background Model
+
+Each product has:
+- `tier`: `hourly`, `daily`, or `weekly`
+- `tier_mode`: `auto` or `manual`
+- `next_scrape_at`: when the worker should scrape next
+
+How tiers are determined in `auto` mode:
+- `hourly`: 2+ price changes in 48h, or >=5% change across 7 days
+- `daily`: normal active products
+- `weekly`: no observed change in 30 days
+
+Worker behavior:
+- claims due products
+- scrapes with Playwright
+- writes `price_history`
+- resets/backs off on failures
+- updates next run with jitter
+
+## Database Migration (Supabase)
+
+Run this SQL in Supabase SQL Editor:
+
+`supabase/migrations/20260220_add_tier_scheduler.sql`
+
+It adds tier fields, indexes, and the `claim_due_products` RPC for safe worker claiming.
+
+## Local/Worker Environment
+
+Use env vars (recommended):
+
+```bash
+export SUPABASE_URL="https://<project-ref>.supabase.co"
+export SUPABASE_KEY="<anon-or-service-role-key>"
+```
+
+For production background workers, prefer the Supabase **service role key**.
+
+## Railway Worker Deployment
+
+This repo includes:
+- `src/worker.js` (long-running loop worker)
+- `railway.json` (`npm run worker`)
+
+Steps:
+1. Create a Railway project from this repo.
+2. Add env vars: `SUPABASE_URL`, `SUPABASE_KEY`.
+3. Optional env vars:
+   - `SYNC_INTERVAL_MINUTES=5`
+   - `SYNC_LIMIT=20`
+4. Deploy.
+5. Confirm logs show `[worker] processed=...`.
+
+One-shot run for testing:
+
+```bash
+npm run worker:once
+```
+
+## Vercel Website Deployment (`amaprice.sh`)
+
+Lean marketing site is in `website/`.
+
+Steps:
+1. Import the repo in Vercel.
+2. Set **Root Directory** to `website`.
+3. Deploy.
+4. Add domain `amaprice.sh` in Vercel Domains and assign to this project.
+5. Set `www.amaprice.sh` redirect to `amaprice.sh`.
 
 ## Community Price Data
 
-`amaprice` contributes anonymized price snapshots (product title, ASIN, price, timestamp) to a shared database. Every lookup helps build richer price history for everyone.
-
-No personal or device information is collected.
-
-## Requirements
-
-- Node.js >= 18
-- Chromium is installed automatically by Playwright during install
+`amaprice` contributes anonymized price snapshots (title, ASIN, price, timestamp) to a shared dataset.
+No personal/device data is stored.
 
 ## License
 
 MIT
+

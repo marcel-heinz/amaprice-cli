@@ -8,6 +8,9 @@
     "amaprice": "bin/cli.js"
   },
   "scripts": {
+    "sync": "node bin/cli.js sync",
+    "worker": "node src/worker.js",
+    "worker:once": "SYNC_RUN_ONCE=1 node src/worker.js",
     "postinstall": "npx --yes playwright install chromium"
   },
   "files": [
