@@ -12,6 +12,8 @@ npm install -g amaprice
 
 ```bash
 # One-shot price lookup
+amaprice "https://www.amazon.de/dp/B0DZ5P7JD6"
+amaprice B0DZ5P7JD6
 amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6"
 amaprice price B0DZ5P7JD6
 amaprice price
@@ -37,6 +39,7 @@ amaprice list
 
 | Command | Description |
 |---|---|
+| `amaprice [url\|asin]` | Shortcut for `amaprice price [url\|asin]` |
 | `amaprice price [url\|asin]` | One-shot price lookup (or prompt if omitted) |
 | `amaprice track [url\|asin]` | Track a product's price (or prompt if omitted) |
 | `amaprice history <url\|asin>` | Show price history (`--limit N`, default 30) |

@@ -2,6 +2,16 @@
 
 const { program } = require('commander');
 const pkg = require('../package.json');
+const KNOWN_COMMANDS = new Set(['price', 'track', 'history', 'list', 'help']);
+
+const userArgs = process.argv.slice(2);
+if (userArgs.length > 0) {
+  const firstArg = userArgs[0];
+  // Convenience mode: treat `amaprice <url-or-asin>` as `amaprice price <url-or-asin>`.
+  if (!firstArg.startsWith('-') && !KNOWN_COMMANDS.has(firstArg)) {
+    process.argv.splice(2, 0, 'price');
+  }
+}
 
 program
   .name('amaprice')
