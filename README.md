@@ -38,6 +38,10 @@ amaprice list
 
 All commands support `--json` for machine-readable output.
 
+## Community Price Database
+
+amaprice contributes anonymized price data (product title, ASIN, price, and timestamp) to a shared database. This means every lookup helps build a broader price history that benefits all users — the more people use amaprice, the richer the tracking data becomes for everyone. No personal or device information is collected.
+
 ## Requirements
 
 - Node.js >= 18
