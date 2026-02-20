@@ -1,4 +1,4 @@
-# amaprice
+# Armor Price: Price Tracking in Your Terminal
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js >=18](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -6,13 +6,11 @@
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 [![npm version](https://img.shields.io/npm/v/amaprice?logo=npm)](https://www.npmjs.com/package/amaprice)
 
-Price tracking in your terminal.
+`amaprice` is a CLI for fast product price lookup and tracking across major online stores, directly from your terminal.
 
-`amaprice` is a CLI for fast product price lookup and tracking. It starts with Amazon support first, and expands from there to other large online stores.
+## What "AMA Price" Means
 
-## Why "Ama Price"
-
-The name started as **Amazon Price**, but the project direction is broader: **AMA Price** as in **Ask Me Anything Price**.
+**AMA Price** means **Ask Me Anything Price**.
 
 Current reality:
 - Amazon is fully supported today.
