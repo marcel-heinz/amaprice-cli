@@ -22,7 +22,7 @@ module.exports = function (program) {
           }))));
         } else {
           if (products.length === 0) {
-            console.log('No tracked products. Use `amaprice track <url>` to start tracking.');
+            console.log('No tracked products. Use `amaprice track <url-or-asin>` to start tracking.');
             return;
           }
 

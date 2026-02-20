@@ -37,4 +37,28 @@ function canonicalUrl(asin, domain = 'amazon.de') {
   return `https://www.${domain}/dp/${asin}`;
 }
 
-module.exports = { isAmazonUrl, extractAsin, extractDomain, canonicalUrl, AMAZON_DOMAINS };
+function normalizeAmazonInput(input, defaultDomain = 'amazon.de') {
+  const raw = String(input || '').trim();
+  if (!raw) return null;
+
+  const asin = extractAsin(raw);
+  if (asin) {
+    const domain = isAmazonUrl(raw) ? extractDomain(raw) : defaultDomain;
+    return {
+      asin,
+      domain,
+      url: canonicalUrl(asin, domain),
+    };
+  }
+
+  return null;
+}
+
+module.exports = {
+  isAmazonUrl,
+  extractAsin,
+  extractDomain,
+  canonicalUrl,
+  normalizeAmazonInput,
+  AMAZON_DOMAINS,
+};

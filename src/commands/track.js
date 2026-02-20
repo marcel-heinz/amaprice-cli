@@ -1,20 +1,21 @@
-const { isAmazonUrl, extractAsin, extractDomain } = require('../url');
+const { normalizeAmazonInput } = require('../url');
 const { scrapePrice } = require('../scraper');
 const { upsertProduct, insertPrice } = require('../db');
 
 module.exports = function (program) {
   program
-    .command('track <url>')
+    .command('track <url-or-asin>')
     .description('Save product + current price to Supabase')
     .option('--json', 'Output as JSON')
-    .action(async (url, opts) => {
-      if (!isAmazonUrl(url)) {
-        console.error('Error: URL does not appear to be an Amazon link.');
+    .action(async (input, opts) => {
+      const normalized = normalizeAmazonInput(input);
+      if (!normalized) {
+        console.error('Error: Input must be an Amazon product URL or a valid ASIN.');
         process.exit(1);
       }
 
       try {
-        const result = await scrapePrice(url);
+        const result = await scrapePrice(normalized.url);
 
         if (!result.price) {
           console.error('Error: Could not extract price from the page.');

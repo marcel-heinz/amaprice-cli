@@ -1,20 +1,21 @@
-const { isAmazonUrl } = require('../url');
+const { normalizeAmazonInput } = require('../url');
 const { scrapePrice } = require('../scraper');
 const { upsertProduct, insertPrice } = require('../db');
 
 module.exports = function (program) {
   program
-    .command('price <url>')
-    .description('One-shot price lookup for an Amazon product')
+    .command('price <url-or-asin>')
+    .description('One-shot price lookup for an Amazon product URL or ASIN')
     .option('--json', 'Output as JSON')
-    .action(async (url, opts) => {
-      if (!isAmazonUrl(url)) {
-        console.error('Error: URL does not appear to be an Amazon link.');
+    .action(async (input, opts) => {
+      const normalized = normalizeAmazonInput(input);
+      if (!normalized) {
+        console.error('Error: Input must be an Amazon product URL or a valid ASIN.');
         process.exit(1);
       }
 
       try {
-        const result = await scrapePrice(url);
+        const result = await scrapePrice(normalized.url);
 
         if (opts.json) {
           console.log(JSON.stringify({
