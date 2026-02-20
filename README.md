@@ -1,62 +1,100 @@
 # amaprice
 
-CLI tool to look up and track Amazon product prices.
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node.js >=18](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Playwright](https://img.shields.io/badge/Playwright-Chromium-2EAD33?logo=playwright&logoColor=white)](https://playwright.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+[![npm version](https://img.shields.io/npm/v/amaprice?logo=npm)](https://www.npmjs.com/package/amaprice)
 
-## Install
+Price tracking in your terminal.
+
+`amaprice` is a CLI for fast product price lookup and tracking. It starts with Amazon support first, and expands from there to other large online stores.
+
+## Why "Ama Price"
+
+The name started as **Amazon Price**, but the project direction is broader: **AMA Price** as in **Ask Me Anything Price**.
+
+Current reality:
+- Amazon is fully supported today.
+- Walmart and other major stores are planned next.
+
+## Features
+
+- One-shot price lookup from product URL or ASIN.
+- Price tracking with timestamped history.
+- Product list with latest tracked price.
+- JSON output for scripts and AI agents (`--json`).
+- Prompt mode when input is omitted.
+- Shared community price database to improve market visibility over time.
+
+## Store Support
+
+| Store | Status | Notes |
+|---|---|---|
+| Amazon | ✅ | Implemented now |
+| Walmart | ❌ | Planned (next priority) |
+| eBay | ❌ | Planned |
+| Target | ❌ | Planned |
+| Best Buy | ❌ | Planned |
+| Newegg | ❌ | Planned |
+
+## Roadmap
+
+1. Walmart support.
+2. eBay and Target support.
+3. Best Buy and Newegg support.
+4. Additional major online stores.
+
+## Installation
 
 ```bash
 npm install -g amaprice
 ```
 
-## Usage
+## Quick Start
 
 ```bash
-# One-shot price lookup
+# 1) One-shot price lookup
 amaprice "https://www.amazon.de/dp/B0DZ5P7JD6"
 amaprice B0DZ5P7JD6
-amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6"
-amaprice price B0DZ5P7JD6
-amaprice price
-# then paste full Amazon URL or ASIN when prompted
 
-# JSON output (for scripts / AI agents)
-amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6" --json
-
-# Track a product's price over time
+# 2) Track a product (saves current price)
 amaprice track "https://www.amazon.de/dp/B0DZ5P7JD6"
 amaprice track B0DZ5P7JD6
-amaprice track
-# then paste full Amazon URL or ASIN when prompted
 
-# View price history
+# 3) View history
 amaprice history B0DZ5P7JD6
 
-# List all tracked products
+# 4) List tracked products
 amaprice list
 ```
 
-## Commands
+If you run a command without input, `amaprice` prompts you to paste a full product URL or ASIN.
+
+## Command Reference
 
 | Command | Description |
 |---|---|
 | `amaprice [url\|asin]` | Shortcut for `amaprice price [url\|asin]` |
 | `amaprice price [url\|asin]` | One-shot price lookup (or prompt if omitted) |
-| `amaprice track [url\|asin]` | Track a product's price (or prompt if omitted) |
+| `amaprice track [url\|asin]` | Save product and current price (or prompt if omitted) |
 | `amaprice history <url\|asin>` | Show price history (`--limit N`, default 30) |
 | `amaprice list` | Show all tracked products with latest price |
 
 All commands support `--json` for machine-readable output.
 
-If your URL contains query parameters (`?` / `&`), either wrap it in quotes or run the command without an argument and paste the full URL into the prompt.
+If a URL contains query parameters (`?` / `&`), wrap it in quotes or run the command without an argument and paste the full URL into the prompt.
 
-## Community Price Database
+## Community Price Data
 
-amaprice contributes anonymized price data (product title, ASIN, price, and timestamp) to a shared database. This means every lookup helps build a broader price history that benefits all users — the more people use amaprice, the richer the tracking data becomes for everyone. No personal or device information is collected.
+`amaprice` contributes anonymized price snapshots (product title, ASIN, price, timestamp) to a shared database. Every lookup helps build richer price history for everyone.
+
+No personal or device information is collected.
 
 ## Requirements
 
 - Node.js >= 18
-- Chromium is installed automatically via Playwright
+- Chromium is installed automatically by Playwright during install
 
 ## License
 
