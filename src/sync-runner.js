@@ -66,6 +66,9 @@ function classifySyncError(err) {
   if (message.includes('captcha')) {
     return { status: 'captcha', blockedSignal: true, httpStatus };
   }
+  if (message.includes('blocked page detected') || message.includes('challenge_page')) {
+    return { status: 'captcha', blockedSignal: true, httpStatus };
+  }
   if (message.includes('econn') || message.includes('enotfound') || message.includes('network error')) {
     return { status: 'network_error', blockedSignal, httpStatus };
   }
@@ -204,3 +207,4 @@ async function runDueSync({ limit = 20 } = {}) {
 }
 
 module.exports = { runDueSync };
+module.exports.__test = { classifySyncError };

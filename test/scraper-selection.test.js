@@ -50,3 +50,52 @@ test('candidate chooser rejects non-parsable candidates', () => {
 
   assert.equal(best, null);
 });
+
+test('blocked detector catches localized challenge pages', () => {
+  const detected = __test.detectBlockedPage({
+    httpStatus: 200,
+    pageTitle: 'Sicherheitsuberprufung',
+    bodyText: 'Automatisierte Zugriffe auf Amazon sind eingeschrankt. Geben Sie die Zeichen ein.',
+    finalUrl: 'https://www.amazon.de/errors/validateCaptcha',
+    hasProductTitle: false,
+    productIndicatorCount: 0,
+    challengeIndicatorCount: 1,
+  });
+
+  assert.equal(detected.blockedSignal, true);
+  assert.equal(detected.blockedReason, 'challenge_page');
+});
+
+test('blocked detector does not flag normal product pages', () => {
+  const detected = __test.detectBlockedPage({
+    httpStatus: 200,
+    pageTitle: 'Product page title',
+    bodyText: 'Normal product body with shipping details.',
+    finalUrl: 'https://www.amazon.de/dp/B0DZ5P7JD6',
+    hasProductTitle: true,
+    productIndicatorCount: 3,
+    challengeIndicatorCount: 0,
+  });
+
+  assert.equal(detected.blockedSignal, false);
+  assert.equal(detected.blockedReason, null);
+});
+
+test('retry helper retries only transient no-price result once', () => {
+  assert.equal(
+    __test.shouldRetryNoPrice({ price: null, blockedSignal: false }, 1, 2),
+    true,
+  );
+  assert.equal(
+    __test.shouldRetryNoPrice({ price: null, blockedSignal: false }, 2, 2),
+    false,
+  );
+  assert.equal(
+    __test.shouldRetryNoPrice({ price: null, blockedSignal: true }, 1, 2),
+    false,
+  );
+  assert.equal(
+    __test.shouldRetryNoPrice({ price: { numeric: 329 }, blockedSignal: false }, 1, 2),
+    false,
+  );
+});
