@@ -1,4 +1,4 @@
-# AMAprice.sh - Terminal-first e-commerce price tracking
+# AMAprice.sh - terminal first e-commerce price tracking
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js >=20](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -11,8 +11,18 @@
 
 ## Install
 
+Requires Node.js `>=20`.
+
 ```bash
 npm install -g amaprice
+```
+
+First install downloads Playwright Chromium (via npm `postinstall`).
+
+You can also run it without global install:
+
+```bash
+npx amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6"
 ```
 
 ## Quickstart
@@ -31,19 +41,30 @@ amaprice history B0DZ5P7JD6 --limit 30
 amaprice list
 ```
 
+## Input Modes
+
+`price` and `track` accept input in three ways:
+- direct argument (`amaprice price <url-or-asin>`)
+- piped stdin (`echo "<url-or-asin>" | amaprice price`)
+- interactive prompt (run command without argument)
+
 ## Commands
 
 | Command | Description |
 |---|---|
 | `amaprice [url\|asin]` | Shortcut for `amaprice price [url\|asin]` |
 | `amaprice price [url\|asin]` | One-shot lookup and silent history insert |
-| `amaprice track [url\|asin]` | Track product + current price |
+| `amaprice track [url\|asin]` | Track product + current price (`--tier`, `--manual-tier`, `--auto-tier`, `--inactive`) |
 | `amaprice history <url\|asin>` | Show history (`--limit N`) |
 | `amaprice list` | List tracked products + latest price |
 | `amaprice sync --limit <n>` | Run background sync for due products |
-| `amaprice tier <url\|asin> <hourly\|daily\|weekly>` | Set tier for tracked product |
+| `amaprice tier <url\|asin> <hourly\|daily\|weekly>` | Set tier/status (`--auto`, `--manual`, `--activate`, `--deactivate`) |
 
 All commands support `--json`.
+
+## Supported Amazon Domains
+
+`amazon.de`, `amazon.com`, `amazon.co.uk`, `amazon.fr`, `amazon.it`, `amazon.es`, `amazon.nl`, `amazon.co.jp`, `amazon.ca`, `amazon.com.au`, `amazon.in`, `amazon.com.br`
 
 ## Testing
 
@@ -89,6 +110,8 @@ Run this SQL in Supabase SQL Editor:
 
 These migrations add tier fields, indexes, telemetry, worker health rollups, and `price_history.currency`.
 
+Note: these files are additive migrations and expect existing `products` + `price_history` tables.
+
 ## Block Detection Queries
 
 Products currently failing or likely blocked:
@@ -125,12 +148,23 @@ select * from worker_health;
 
 ## Local/Worker Environment
 
-Use env vars (recommended):
+Use your own Supabase project for isolated data:
 
 ```bash
 export SUPABASE_URL="https://<project-ref>.supabase.co"
 export SUPABASE_KEY="<anon-or-service-role-key>"
 ```
+
+Environment variables used by the npm package:
+
+| Variable | Default | Used by | Notes |
+|---|---|---|---|
+| `SUPABASE_URL` | built-in public project URL | CLI + worker | Override for your own Supabase project |
+| `SUPABASE_KEY` | built-in public anon key | CLI + worker | Preferred variable name |
+| `SUPABASE_ANON_KEY` | none | CLI + worker | Alias fallback if `SUPABASE_KEY` is unset |
+| `SYNC_INTERVAL_MINUTES` | `5` | `src/worker.js` | Worker loop interval |
+| `SYNC_LIMIT` | `20` | `src/worker.js`, `amaprice sync --limit` | Max due products per run |
+| `SYNC_RUN_ONCE` | `0` | `src/worker.js` | Set `1` for single run and exit |
 
 For production background workers, prefer the Supabase **service role key**.
 
