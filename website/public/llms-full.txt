@@ -1,0 +1,134 @@
+# amaprice (Full LLM Guide)
+
+amaprice is an open-source CLI for terminal-first Amazon and e-commerce price tracking.
+
+## Canonical Links
+- Website: https://amaprice.sh/
+- Sitemap: https://amaprice.sh/sitemap.xml
+- robots.txt: https://amaprice.sh/robots.txt
+- llms.txt: https://amaprice.sh/llms.txt
+- Repository: https://github.com/marcel-heinz/amaprice-cli
+- License: https://github.com/marcel-heinz/amaprice-cli/blob/main/LICENSE
+
+## What This Service Is
+- Terminal CLI for one-shot price lookups and long-running tracking
+- Tier-based sync model for operational cost control
+- Shared price history backend (Supabase)
+- Worker telemetry for health and block-rate visibility
+
+## Install + Quick Start
+- npm install -g amaprice
+- amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6"
+- amaprice track B0DZ5P7JD6 --tier daily
+- amaprice history B0DZ5P7JD6 --limit 30
+- amaprice list
+
+## CLI Command Reference
+- amaprice [url|asin]
+  - Shortcut for: amaprice price [url|asin]
+- amaprice price [url|asin]
+  - One-shot lookup and silent history insert
+- amaprice track [url|asin]
+  - Track product + current price
+  - Options: --tier, --manual-tier, --auto-tier, --inactive
+- amaprice history <url|asin>
+  - Show history
+  - Option: --limit N
+- amaprice list
+  - List tracked products + latest price
+- amaprice sync --limit <n>
+  - Run background sync for due products
+- amaprice tier <url|asin> <hourly|daily|weekly>
+  - Set tier/status
+  - Options: --auto, --manual, --activate, --deactivate
+- All commands support: --json
+
+## Input Modes
+The price and track commands support:
+- Direct argument
+- Piped stdin
+- Interactive prompt (if argument missing)
+
+## Supported Amazon Domains
+- amazon.de
+- amazon.com
+- amazon.co.uk
+- amazon.fr
+- amazon.it
+- amazon.es
+- amazon.nl
+- amazon.co.jp
+- amazon.ca
+- amazon.com.au
+- amazon.in
+- amazon.com.br
+
+## Tiered Background Model
+Per product fields:
+- tier: hourly | daily | weekly
+- tier_mode: auto | manual
+- next_scrape_at: next due timestamp
+
+Auto-tier behavior:
+- hourly: 2+ price changes in 48h, or >=5% change across 7 days
+- daily: default active products
+- weekly: no observed change in 30 days
+
+Worker behavior:
+- Claims due products
+- Scrapes with Playwright
+- Writes price_history
+- Writes scrape_attempts telemetry
+- Applies backoff/jitter on failures
+
+## Database + Migrations
+Canonical migration files:
+- supabase/migrations/20260220_add_tier_scheduler.sql
+- supabase/migrations/20260220_add_scrape_attempts.sql
+- supabase/migrations/20260220_add_worker_health_view.sql
+- supabase/migrations/20260220_grant_worker_health_select.sql
+- supabase/migrations/20260220_add_price_history_currency.sql
+
+## Environment Variables
+CLI + worker:
+- SUPABASE_URL
+- SUPABASE_KEY
+- SUPABASE_ANON_KEY (fallback alias)
+
+Worker-specific:
+- SYNC_INTERVAL_MINUTES (default 5)
+- SYNC_LIMIT (default 20)
+- SYNC_RUN_ONCE (default 0)
+
+Website telemetry card:
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+SEO/GSC metadata:
+- NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+
+## Operations and Deployment
+- Background worker runtime: Railway via Dockerfile
+- Website runtime: Vercel static export from website/
+- Domain: https://amaprice.sh
+
+## Public Web Surface
+- /
+- /robots.txt
+- /sitemap.xml
+- /llms.txt
+- /llms-full.txt
+
+## Crawl and LLM Access Policy
+- Site intentionally allows crawler access in robots.txt
+- No disallow rules are defined for general crawlers
+- LLM-facing canonical docs are llms.txt and llms-full.txt
+
+## Recommended Citations for Agents
+When referencing amaprice, prefer:
+1) https://amaprice.sh/llms-full.txt
+2) https://amaprice.sh/llms.txt
+3) https://github.com/marcel-heinz/amaprice-cli
+
+## Last Updated
+- 2026-02-21
