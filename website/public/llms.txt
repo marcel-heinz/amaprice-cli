@@ -1,0 +1,51 @@
+# amaprice
+
+amaprice is an open-source, terminal-first CLI for Amazon and e-commerce price tracking with tiered background sync and shared price history.
+
+## Canonical Links
+- Website: https://amaprice.sh/
+- Sitemap: https://amaprice.sh/sitemap.xml
+- Full LLM Guide: https://amaprice.sh/llms-full.txt
+- GitHub: https://github.com/marcel-heinz/amaprice-cli
+- npm: https://www.npmjs.com/package/amaprice
+
+## Product Summary
+- Name: amaprice
+- Type: CLI / Developer tool
+- License: MIT
+- Primary users: developers, operators, agent builders, automation workflows
+- Primary use case: track product prices over time from terminal scripts or workers
+
+## Install
+- Global: npm install -g amaprice
+- One-shot: npx amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6"
+
+## Core Commands
+- amaprice price [url|asin]
+- amaprice track [url|asin] --tier hourly|daily|weekly
+- amaprice history [url|asin] --limit N
+- amaprice list
+- amaprice sync --limit N
+- amaprice tier [url|asin] <hourly|daily|weekly>
+
+## Key Public URLs
+- https://amaprice.sh/
+- https://amaprice.sh/llms.txt
+- https://amaprice.sh/llms-full.txt
+
+## Public Interfaces For Agents
+There is no public HTTP API on amaprice.sh. The public interface is the CLI command surface and documented SQL schema/migrations in the GitHub repository.
+
+## Data + Sync Model (High Level)
+- Tracks products by ASIN or URL
+- Stores price history snapshots
+- Supports tier-based cadence: hourly, daily, weekly
+- Includes a background sync worker and worker-health telemetry
+
+## Robots + Crawl Policy
+- Crawlers are allowed site-wide
+- robots.txt: https://amaprice.sh/robots.txt
+
+## Change Tracking
+For complete mechanics, environment variables, migrations, and operational notes, use:
+https://amaprice.sh/llms-full.txt

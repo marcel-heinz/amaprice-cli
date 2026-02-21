@@ -212,6 +212,7 @@ Steps:
 3. Set website env vars:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` (for Google Search Console verification meta tag)
 4. Deploy.
 5. Add domain `amaprice.sh` in Vercel Domains and assign to this project.
 6. Set `www.amaprice.sh` redirect to `amaprice.sh`.
@@ -223,6 +224,24 @@ cd website
 npm install
 npm run dev
 ```
+
+## SEO + LLM Discoverability
+
+The website includes:
+- `https://amaprice.sh/robots.txt` (open crawl policy, no root blocking)
+- `https://amaprice.sh/sitemap.xml` (canonical URLs for Google indexing)
+- `https://amaprice.sh/llms.txt` (concise LLM index)
+- `https://amaprice.sh/llms-full.txt` (extended technical guide)
+
+### Google Search Console
+
+1. Open https://search.google.com/search-console
+2. Add property `https://amaprice.sh`
+3. Choose HTML meta-tag verification
+4. Set `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` with the provided token
+5. Deploy the website
+6. In Search Console, submit `https://amaprice.sh/sitemap.xml`
+7. Request indexing for key pages if needed
 
 ## Community Price Data
 

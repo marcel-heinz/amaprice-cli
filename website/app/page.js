@@ -1,8 +1,53 @@
 import WorkerHealthCard from "./components/worker-health-card";
 
+const softwareApplicationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "amaprice",
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: "macOS, Linux, Windows",
+  softwareVersion: "1.0.6",
+  description:
+    "Open-source terminal-first CLI to track Amazon and e-commerce prices with tiered background sync and shared history.",
+  license: "https://github.com/marcel-heinz/amaprice-cli/blob/main/LICENSE",
+  codeRepository: "https://github.com/marcel-heinz/amaprice-cli",
+  downloadUrl: "https://www.npmjs.com/package/amaprice",
+  url: "https://amaprice.sh",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD"
+  }
+};
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "amaprice",
+  url: "https://amaprice.sh",
+  description:
+    "Official website for the amaprice terminal CLI used for Amazon and e-commerce price tracking.",
+  publisher: {
+    "@type": "Organization",
+    name: "amaprice"
+  }
+};
+
 export default function Home() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(softwareApplicationJsonLd)
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(websiteJsonLd)
+        }}
+      />
       <div className="backdrop" />
       <header className="topbar container">
         <a className="brand" href="/" aria-label="amaprice home">
