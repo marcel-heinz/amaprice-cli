@@ -1,6 +1,7 @@
 # amaprice
 
-amaprice is an open-source, terminal-first CLI for Amazon and e-commerce price tracking with tiered background sync and shared price history.
+amaprice is a terminal-first CLI to check e-commerce prices, track products, and build shared price history automatically.
+It starts with Amazon support and expands to Walmart and other major e-commerce stores.
 
 ## Canonical Links
 - Website: https://amaprice.sh/
@@ -15,6 +16,12 @@ amaprice is an open-source, terminal-first CLI for Amazon and e-commerce price t
 - License: MIT
 - Primary users: developers, operators, agent builders, automation workflows
 - Primary use case: track product prices over time from terminal scripts or workers
+
+## Store Coverage
+- Live now: Amazon
+- Next target: Walmart
+- Planned after that: additional major e-commerce stores
+- Goal: one multi-store, terminal-first tracking workflow
 
 ## Install
 - Global: npm install -g amaprice

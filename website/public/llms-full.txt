@@ -1,6 +1,7 @@
 # amaprice (Full LLM Guide)
 
-amaprice is an open-source CLI for terminal-first Amazon and e-commerce price tracking.
+amaprice is a terminal-first CLI to check e-commerce prices, track products, and build shared price history automatically.
+It starts with Amazon support and is expanding to Walmart and other major e-commerce stores.
 
 ## Canonical Links
 - Website: https://amaprice.sh/
@@ -16,12 +17,19 @@ amaprice is an open-source CLI for terminal-first Amazon and e-commerce price tr
 - Shared price history backend (Supabase)
 - Worker telemetry for health and block-rate visibility
 
+## Store Coverage and Roadmap
+- Live now: Amazon
+- Next: Walmart
+- Then: additional major e-commerce stores
+- Product direction: unified multi-store tracking from one CLI workflow
+
 ## Install + Quick Start
 - npm install -g amaprice
 - amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6"
 - amaprice track B0DZ5P7JD6 --tier daily
 - amaprice history B0DZ5P7JD6 --limit 30
 - amaprice list
+- Note: examples currently use Amazon URLs/ASINs because Amazon is the live store integration today.
 
 ## CLI Command Reference
 - amaprice [url|asin]
@@ -49,7 +57,8 @@ The price and track commands support:
 - Piped stdin
 - Interactive prompt (if argument missing)
 
-## Supported Amazon Domains
+## Currently Supported Store (Phase 1)
+Amazon domains:
 - amazon.de
 - amazon.com
 - amazon.co.uk
@@ -62,6 +71,10 @@ The price and track commands support:
 - amazon.com.au
 - amazon.in
 - amazon.com.br
+
+Roadmap:
+- Walmart integration next
+- Additional major stores after Walmart
 
 ## Tiered Background Model
 Per product fields:

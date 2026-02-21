@@ -110,12 +110,17 @@ test('llms documentation files exist and contain required sections', () => {
   assert.match(llms, /https:\/\/amaprice\.sh\/sitemap\.xml/);
   assert.match(llms, /https:\/\/amaprice\.sh\/llms-full\.txt/);
   assert.match(llms, /## Robots \+ Crawl Policy/);
+  assert.match(llms, /It starts with Amazon support/i);
+  assert.match(llms, /Walmart/i);
 
   assert.match(llmsFull, /^# amaprice \(Full LLM Guide\)/m);
   assert.match(llmsFull, /## CLI Command Reference/);
   assert.match(llmsFull, /## Tiered Background Model/);
   assert.match(llmsFull, /## Crawl and LLM Access Policy/);
   assert.match(llmsFull, /https:\/\/amaprice\.sh\/robots\.txt/);
+  assert.match(llmsFull, /## Store Coverage and Roadmap/);
+  assert.match(llmsFull, /Live now:\s*Amazon/i);
+  assert.match(llmsFull, /Next:\s*Walmart/i);
 });
 
 test('layout metadata includes canonical + crawl + social configuration', () => {
