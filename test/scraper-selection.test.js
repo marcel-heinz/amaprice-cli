@@ -129,3 +129,30 @@ test('twister fallback parser uses numeric amount when display text missing', ()
   assert.equal(parsed.parsed.numeric, 159.97);
   assert.equal(parsed.parsed.currency, 'EUR');
 });
+
+test('inline markup parser prefers buybox display price over unrelated entries', () => {
+  const html = `
+    <script>
+      {"other_group":[{"displayPrice":"3,43\u00a0€"}],
+       "desktop_buybox_group_1":[{"displayPrice":"79,99\u00a0€"}]}
+    </script>
+  `;
+
+  const parsed = __test.pickPriceFromInlineMarkup(html, 'EUR');
+  assert.ok(parsed);
+  assert.equal(parsed.parsed.numeric, 79.99);
+  assert.equal(parsed.parsed.currency, 'EUR');
+});
+
+test('inline markup parser falls back to priceAmount + currencySymbol', () => {
+  const html = `
+    <script>
+      {"desktop_buybox_group_1":[{"priceAmount":159.97,"currencySymbol":"€"}]}
+    </script>
+  `;
+
+  const parsed = __test.pickPriceFromInlineMarkup(html, 'EUR');
+  assert.ok(parsed);
+  assert.equal(parsed.parsed.numeric, 159.97);
+  assert.equal(parsed.parsed.currency, 'EUR');
+});

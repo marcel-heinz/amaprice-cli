@@ -7,9 +7,14 @@ const PRICE_SELECTORS = [
   '#corePriceDisplay_desktop_feature_div .apex-pricetopay-value .a-offscreen',
   '#corePrice_feature_div .a-price .a-offscreen',
   '#corePriceDisplay_desktop_feature_div .a-price .a-offscreen',
+  '#corePrice_feature_div .a-price',
+  '#corePriceDisplay_desktop_feature_div .a-price',
   '#buybox .a-price .a-offscreen',
+  '#buybox .a-price',
   '#desktop_buybox .a-price .a-offscreen',
+  '#desktop_buybox .a-price',
   '#newAccordionRow .a-price .a-offscreen',
+  '#newAccordionRow .a-price',
   '#priceblock_ourprice',
   '#priceblock_dealprice',
 ];
@@ -108,6 +113,19 @@ function normalizeForMatch(value) {
 
 function matchesAny(value, patterns) {
   return patterns.some((pattern) => pattern.test(value));
+}
+
+function normalizeJsonStringValue(raw) {
+  const cleaned = cleanPriceText(String(raw || ''));
+  if (!cleaned) return cleaned;
+  try {
+    const escaped = cleaned
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"');
+    return cleanPriceText(JSON.parse(`"${escaped}"`));
+  } catch {
+    return cleaned;
+  }
 }
 
 function cleanPriceText(value) {
@@ -245,6 +263,77 @@ async function pickPriceFromTwisterData(page, fallbackCurrency) {
   return null;
 }
 
+function scoreMarkupCandidate(context, index) {
+  let score = 0;
+  const ctx = String(context || '').toLowerCase();
+  if (/desktop_buybox_group_1|buybox|coreprice|pricetopay|apex/.test(ctx)) score += 80;
+  if (/used|buying options|basisprice|a-text-price|strike|wasprice/.test(ctx)) score -= 60;
+  score -= index;
+  return score;
+}
+
+function pickPriceFromInlineMarkup(html, fallbackCurrency) {
+  const source = String(html || '');
+  if (!source) return null;
+
+  const candidates = [];
+
+  const displayRegex = /"displayPrice"\s*:\s*"([^"]+)"/g;
+  let match = null;
+  let index = 0;
+  while ((match = displayRegex.exec(source)) !== null) {
+    const raw = normalizeJsonStringValue(match[1]);
+    const parsed = parsePrice(raw, fallbackCurrency);
+    if (!parsed || !Number.isFinite(parsed.numeric) || parsed.numeric <= 0) {
+      index += 1;
+      continue;
+    }
+
+    const context = source.slice(Math.max(0, match.index - 140), Math.min(source.length, match.index + 24));
+    candidates.push({
+      text: raw,
+      parsed,
+      score: scoreMarkupCandidate(context, index),
+    });
+    index += 1;
+  }
+
+  const amountRegex = /"priceAmount"\s*:\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*"currencySymbol"\s*:\s*"([^"]+)"/g;
+  let amountMatch = null;
+  let amountIndex = 0;
+  while ((amountMatch = amountRegex.exec(source)) !== null) {
+    const amount = Number(amountMatch[1]);
+    const symbol = normalizeJsonStringValue(amountMatch[2]);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      amountIndex += 1;
+      continue;
+    }
+
+    const text = symbol ? `${symbol} ${amount}` : String(amount);
+    const parsed = parsePrice(text, fallbackCurrency);
+    if (!parsed || !Number.isFinite(parsed.numeric) || parsed.numeric <= 0) {
+      amountIndex += 1;
+      continue;
+    }
+
+    const context = source.slice(Math.max(0, amountMatch.index - 140), Math.min(source.length, amountMatch.index + 24));
+    candidates.push({
+      text,
+      parsed,
+      score: scoreMarkupCandidate(context, amountIndex),
+    });
+    amountIndex += 1;
+  }
+
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => b.score - a.score);
+  return {
+    text: candidates[0].text,
+    parsed: candidates[0].parsed,
+  };
+}
+
 async function waitForScrapeSignals(page) {
   await Promise.race([
     page.waitForSelector('#productTitle', { timeout: 4500 }).catch(() => null),
@@ -334,6 +423,15 @@ async function scrapePageOnce(page, url, prefs) {
     if (twisterCandidate) {
       priceRaw = twisterCandidate.text;
       parsed = twisterCandidate.parsed;
+    }
+  }
+
+  if (!parsed) {
+    const html = await page.content().catch(() => '');
+    const markupCandidate = pickPriceFromInlineMarkup(html, prefs.currency);
+    if (markupCandidate) {
+      priceRaw = markupCandidate.text;
+      parsed = markupCandidate.parsed;
     }
   }
 
@@ -478,9 +576,11 @@ module.exports = { scrapePrice };
 module.exports.__test = {
   PRICE_SELECTORS,
   cleanPriceText,
+  normalizeJsonStringValue,
   scorePriceCandidate,
   chooseBestPriceCandidate,
   parseTwisterPriceData,
+  pickPriceFromInlineMarkup,
   detectBlockedPage,
   shouldRetryNoPrice,
 };
