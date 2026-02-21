@@ -1,4 +1,4 @@
-const { extractAsin } = require('../url');
+const { extractAsin, normalizeAmazonInput } = require('../url');
 const { getProductByAsin, updateProductByAsin } = require('../db');
 const { normalizeTier, computeNextScrapeAt } = require('../tiering');
 
@@ -12,7 +12,11 @@ module.exports = function (program) {
     .option('--deactivate', 'Disable background sync for this product')
     .option('--json', 'Output as JSON')
     .action(async (urlOrAsin, tierArg, opts) => {
-      const asin = extractAsin(urlOrAsin);
+      let asin = extractAsin(urlOrAsin);
+      if (!asin) {
+        const normalized = await normalizeAmazonInput(urlOrAsin);
+        asin = normalized?.asin ?? null;
+      }
       if (!asin) {
         console.error('Error: Could not extract ASIN from input.');
         process.exit(1);
@@ -72,4 +76,3 @@ module.exports = function (program) {
       }
     });
 };
-

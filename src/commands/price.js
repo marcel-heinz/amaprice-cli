@@ -11,7 +11,7 @@ module.exports = function (program) {
     .option('--json', 'Output as JSON')
     .action(async (inputParts, opts) => {
       const input = await resolveCliInput(inputParts);
-      const normalized = normalizeAmazonInput(input);
+      const normalized = await normalizeAmazonInput(input);
       if (!normalized) {
         console.error('Error: Input must be an Amazon product URL or a valid ASIN.');
         process.exit(1);

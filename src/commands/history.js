@@ -1,4 +1,4 @@
-const { extractAsin } = require('../url');
+const { extractAsin, normalizeAmazonInput } = require('../url');
 const { getPriceHistory } = require('../db');
 const { formatPrice } = require('../format');
 
@@ -9,7 +9,11 @@ module.exports = function (program) {
     .option('--limit <n>', 'Number of entries to show', '30')
     .option('--json', 'Output as JSON')
     .action(async (urlOrAsin, opts) => {
-      const asin = extractAsin(urlOrAsin);
+      let asin = extractAsin(urlOrAsin);
+      if (!asin) {
+        const normalized = await normalizeAmazonInput(urlOrAsin);
+        asin = normalized?.asin ?? null;
+      }
       if (!asin) {
         console.error('Error: Could not extract ASIN from input.');
         process.exit(1);

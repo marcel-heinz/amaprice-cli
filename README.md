@@ -49,6 +49,8 @@ amaprice list
 - piped stdin (`echo "<url-or-asin>" | amaprice price`)
 - interactive prompt (run command without argument)
 
+Short links from Amazon apps (for example `amzn.eu`, `amzn.to`, `a.co`) are accepted and resolved automatically.
+
 ## Commands
 
 | Command | Description |
