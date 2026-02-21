@@ -1,4 +1,4 @@
-# amaprice
+# AMAprice.sh - Terminal-first e-commerce price tracking
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node.js >=20](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -6,6 +6,8 @@
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 
 `amaprice` is a terminal-first CLI to check Amazon prices, track products, and build shared price history automatically.
+
+![AMAprice CLI preview](docs/preview.png)
 
 ## Install
 
