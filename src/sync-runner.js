@@ -78,6 +78,16 @@ function classifySyncError(err) {
   return { status: 'other_error', blockedSignal, httpStatus };
 }
 
+function buildNoPriceErrorMessage(result) {
+  const details = [];
+  if (result?.httpStatus) details.push(`http=${result.httpStatus}`);
+  if (result?.finalUrl) details.push(`final_url=${result.finalUrl}`);
+  if (result?.pageTitle) details.push(`title=${String(result.pageTitle).replace(/\s+/g, ' ').slice(0, 120)}`);
+  return details.length > 0
+    ? `Could not extract price from the page. ${details.join(' | ')}`
+    : 'Could not extract price from the page.';
+}
+
 async function runDueSync({ limit = 20 } = {}) {
   const safeLimit = Math.max(1, Number(limit) || 20);
   const dueProducts = await claimDueProducts(safeLimit);
@@ -105,7 +115,7 @@ async function runDueSync({ limit = 20 } = {}) {
         const error = new Error(
           result.blockedSignal
             ? `Blocked page detected (${result.blockedReason || 'challenge'})`
-            : 'Could not extract price from the page.',
+            : buildNoPriceErrorMessage(result),
         );
         error.httpStatus = result.httpStatus;
         error.blockedSignal = Boolean(result.blockedSignal);

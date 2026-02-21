@@ -99,3 +99,33 @@ test('retry helper retries only transient no-price result once', () => {
     false,
   );
 });
+
+test('twister fallback parser extracts display price payload', () => {
+  const payload = JSON.stringify({
+    desktop_buybox_group_1: [{
+      displayPrice: '79,99&nbsp;EUR',
+      priceAmount: 79.99,
+      currencySymbol: 'EUR',
+    }],
+  });
+
+  const parsed = __test.parseTwisterPriceData(payload, 'EUR');
+  assert.ok(parsed);
+  assert.equal(parsed.text, '79,99 EUR');
+  assert.equal(parsed.parsed.numeric, 79.99);
+  assert.equal(parsed.parsed.currency, 'EUR');
+});
+
+test('twister fallback parser uses numeric amount when display text missing', () => {
+  const payload = JSON.stringify({
+    desktop_buybox_group_1: [{
+      priceAmount: 159.97,
+      currencySymbol: 'EUR',
+    }],
+  });
+
+  const parsed = __test.parseTwisterPriceData(payload, 'EUR');
+  assert.ok(parsed);
+  assert.equal(parsed.parsed.numeric, 159.97);
+  assert.equal(parsed.parsed.currency, 'EUR');
+});

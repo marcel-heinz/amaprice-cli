@@ -13,6 +13,15 @@ const PRICE_SELECTORS = [
   '#priceblock_ourprice',
   '#priceblock_dealprice',
 ];
+const TWISTER_PRICE_DATA_SELECTOR = '.twister-plus-buying-options-price-data';
+const PRICE_READY_SELECTOR = [
+  ...PRICE_SELECTORS,
+  TWISTER_PRICE_DATA_SELECTOR,
+  '#corePrice_feature_div .a-price-whole',
+  '#corePriceDisplay_desktop_feature_div .a-price-whole',
+  '#buybox .a-price-whole',
+  '#desktop_buybox .a-price-whole',
+].join(', ');
 
 const CONTAINER_SAFE_ARGS = [
   '--no-sandbox',
@@ -101,6 +110,13 @@ function matchesAny(value, patterns) {
   return patterns.some((pattern) => pattern.test(value));
 }
 
+function cleanPriceText(value) {
+  return String(value || '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function scorePriceCandidate(candidate) {
   let score = 0;
   const top = Number.isFinite(candidate.top) ? candidate.top : 1e9;
@@ -130,7 +146,8 @@ function chooseBestPriceCandidate(rawCandidates, fallbackCurrency) {
     .filter((c) => c && c.text)
     .map((c) => ({
       ...c,
-      parsed: parsePrice(c.text, fallbackCurrency),
+      text: cleanPriceText(c.text),
+      parsed: parsePrice(cleanPriceText(c.text), fallbackCurrency),
     }))
     .filter((c) => c.parsed && Number.isFinite(c.parsed.numeric) && c.parsed.numeric > 0);
 
@@ -172,6 +189,70 @@ async function pickPriceTextForSelector(page, selector, fallbackCurrency) {
 
   const best = chooseBestPriceCandidate(rawCandidates, fallbackCurrency);
   return best ? best.text : null;
+}
+
+function parseTwisterPriceData(raw, fallbackCurrency) {
+  if (!raw) return null;
+
+  let payload = null;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  const groups = Object.values(payload || {});
+  for (const group of groups) {
+    if (!Array.isArray(group)) continue;
+    for (const entry of group) {
+      if (!entry || typeof entry !== 'object') continue;
+
+      const display = cleanPriceText(entry.displayPrice);
+      if (display) {
+        const parsedFromDisplay = parsePrice(display, fallbackCurrency);
+        if (parsedFromDisplay && Number.isFinite(parsedFromDisplay.numeric) && parsedFromDisplay.numeric > 0) {
+          return { text: display, parsed: parsedFromDisplay };
+        }
+      }
+
+      const amount = Number(entry.priceAmount);
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+
+      const currency = cleanPriceText(entry.currencySymbol || entry.currencyCode);
+      const amountText = currency ? `${currency} ${amount}` : String(amount);
+      const parsedFromAmount = parsePrice(amountText, fallbackCurrency);
+      if (parsedFromAmount && Number.isFinite(parsedFromAmount.numeric) && parsedFromAmount.numeric > 0) {
+        return { text: display || amountText, parsed: parsedFromAmount };
+      }
+    }
+  }
+
+  return null;
+}
+
+async function pickPriceFromTwisterData(page, fallbackCurrency) {
+  const rawDataList = await page
+    .$$eval(TWISTER_PRICE_DATA_SELECTOR, (nodes) => nodes
+      .map((node) => (node.textContent || '').trim())
+      .filter(Boolean))
+    .catch(() => []);
+
+  for (const raw of rawDataList) {
+    const candidate = parseTwisterPriceData(raw, fallbackCurrency);
+    if (candidate) return candidate;
+  }
+
+  return null;
+}
+
+async function waitForScrapeSignals(page) {
+  await Promise.race([
+    page.waitForSelector('#productTitle', { timeout: 4500 }).catch(() => null),
+    page.waitForSelector(PRICE_READY_SELECTOR, { timeout: 4500 }).catch(() => null),
+  ]);
+
+  await page.waitForSelector(PRICE_READY_SELECTOR, { timeout: 3500 }).catch(() => null);
+  await page.waitForTimeout(250);
 }
 
 function detectBlockedPage({
@@ -224,7 +305,7 @@ function shouldRetryNoPrice(result, attempt, maxAttempts) {
 
 async function scrapePageOnce(page, url, prefs) {
   const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForTimeout(3000);
+  await waitForScrapeSignals(page);
   const httpStatus = response ? response.status() : null;
 
   // Product title
@@ -245,6 +326,14 @@ async function scrapePageOnce(page, url, prefs) {
       priceRaw = text;
       parsed = candidate;
       break;
+    }
+  }
+
+  if (!parsed) {
+    const twisterCandidate = await pickPriceFromTwisterData(page, prefs.currency);
+    if (twisterCandidate) {
+      priceRaw = twisterCandidate.text;
+      parsed = twisterCandidate.parsed;
     }
   }
 
@@ -275,6 +364,8 @@ async function scrapePageOnce(page, url, prefs) {
     httpStatus,
     blockedSignal: blocked.blockedSignal,
     blockedReason: blocked.blockedReason,
+    pageTitle,
+    finalUrl,
   };
 }
 
@@ -334,7 +425,7 @@ async function scrapePrice(url) {
   const browser = await launchBrowser();
   try {
     const { context, prefs } = await createDomainContext(browser, domain);
-    const maxAttempts = 2;
+    const maxAttempts = 3;
     let result = null;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -350,7 +441,8 @@ async function scrapePrice(url) {
       }
 
       if (attempt < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 1200));
+        const retryDelayMs = 1200 * attempt;
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       }
     }
 
@@ -374,6 +466,8 @@ async function scrapePrice(url) {
       httpStatus: safeResult.httpStatus,
       blockedSignal: safeResult.blockedSignal,
       blockedReason: safeResult.blockedReason,
+      pageTitle: safeResult.pageTitle || null,
+      finalUrl: safeResult.finalUrl || url,
     };
   } finally {
     await browser.close();
@@ -383,8 +477,10 @@ async function scrapePrice(url) {
 module.exports = { scrapePrice };
 module.exports.__test = {
   PRICE_SELECTORS,
+  cleanPriceText,
   scorePriceCandidate,
   chooseBestPriceCandidate,
+  parseTwisterPriceData,
   detectBlockedPage,
   shouldRetryNoPrice,
 };
