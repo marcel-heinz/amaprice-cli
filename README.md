@@ -5,7 +5,8 @@
 [![Playwright](https://img.shields.io/badge/Playwright-Chromium-2EAD33?logo=playwright&logoColor=white)](https://playwright.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 
-`amaprice` is a terminal-first CLI to check Amazon prices, track products, and build shared price history automatically.
+`amaprice` is a terminal-first CLI to check e-commerce prices, track products, and build shared price history automatically.
+It starts with Amazon support and will expand to Walmart and other major e-commerce stores.
 
 ![AMAprice CLI preview](docs/preview.png)
 
@@ -62,9 +63,18 @@ amaprice list
 
 All commands support `--json`.
 
-## Supported Amazon Domains
+## Currently Supported Store
 
+Amazon domains:
 `amazon.de`, `amazon.com`, `amazon.co.uk`, `amazon.fr`, `amazon.it`, `amazon.es`, `amazon.nl`, `amazon.co.jp`, `amazon.ca`, `amazon.com.au`, `amazon.in`, `amazon.com.br`
+
+## Outlook
+
+- [x] Amazon (live now)
+- [ ] Walmart (next)
+- [ ] More major e-commerce stores after Walmart
+
+Goal: bring multi-store price tracking into one terminal-first workflow.
 
 ## Testing
 
