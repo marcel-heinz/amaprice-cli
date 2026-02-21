@@ -3,9 +3,13 @@ const { parsePrice } = require('./format');
 const { extractAsin, extractDomain } = require('./url');
 
 const PRICE_SELECTORS = [
+  '#corePrice_feature_div .apex-pricetopay-value .a-offscreen',
+  '#corePriceDisplay_desktop_feature_div .apex-pricetopay-value .a-offscreen',
   '#corePrice_feature_div .a-price .a-offscreen',
   '#corePriceDisplay_desktop_feature_div .a-price .a-offscreen',
-  '.a-price .a-offscreen',
+  '#buybox .a-price .a-offscreen',
+  '#desktop_buybox .a-price .a-offscreen',
+  '#newAccordionRow .a-price .a-offscreen',
   '#priceblock_ourprice',
   '#priceblock_dealprice',
 ];
@@ -34,6 +38,79 @@ const DOMAIN_PREFS = {
 
 function getDomainPrefs(domain) {
   return DOMAIN_PREFS[domain] || { currency: null };
+}
+
+function scorePriceCandidate(candidate) {
+  let score = 0;
+  const top = Number.isFinite(candidate.top) ? candidate.top : 1e9;
+  const ctx = String(candidate.context || '').toLowerCase();
+
+  if (candidate.visible) score += 100;
+  if (top >= 0 && top <= 1600) {
+    score += 30;
+  } else if (top > 1600) {
+    score -= 20;
+  }
+  score -= Math.floor(Math.max(0, top) / 250);
+
+  if (/apex-pricetopay|pricetopay|coreprice|priceblock_ourprice|priceblock_dealprice|buybox/.test(ctx)) {
+    score += 35;
+  }
+  if (/basisprice|a-text-price|strike|wasprice/.test(ctx)) {
+    score -= 60;
+  }
+
+  score -= candidate.index;
+  return score;
+}
+
+function chooseBestPriceCandidate(rawCandidates, fallbackCurrency) {
+  const candidates = (rawCandidates || [])
+    .filter((c) => c && c.text)
+    .map((c) => ({
+      ...c,
+      parsed: parsePrice(c.text, fallbackCurrency),
+    }))
+    .filter((c) => c.parsed && Number.isFinite(c.parsed.numeric) && c.parsed.numeric > 0);
+
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => scorePriceCandidate(b) - scorePriceCandidate(a));
+  return candidates[0];
+}
+
+async function pickPriceTextForSelector(page, selector, fallbackCurrency) {
+  const rawCandidates = await page.$$eval(selector, (nodes) => nodes.map((node, index) => {
+    const text = (node.textContent || '').trim();
+    const rect = node.getBoundingClientRect();
+    const style = window.getComputedStyle(node);
+    const visible = rect.width > 0
+      && rect.height > 0
+      && style.display !== 'none'
+      && style.visibility !== 'hidden';
+
+    let ctx = '';
+    let cursor = node;
+    for (let i = 0; i < 5 && cursor; i += 1) {
+      const id = cursor.id ? `#${cursor.id}` : '';
+      const cls = typeof cursor.className === 'string'
+        ? `.${cursor.className.trim().split(/\s+/).slice(0, 3).join('.')}`
+        : '';
+      ctx += ` ${cursor.tagName || ''}${id}${cls}`;
+      cursor = cursor.parentElement;
+    }
+
+    return {
+      index,
+      text,
+      top: Number.isFinite(rect.top) ? rect.top : null,
+      visible,
+      context: ctx.trim(),
+    };
+  }));
+
+  const best = chooseBestPriceCandidate(rawCandidates, fallbackCurrency);
+  return best ? best.text : null;
 }
 
 async function createDomainContext(browser, domain) {
@@ -103,18 +180,19 @@ async function scrapePrice(url) {
 
     // Price — try selectors in order of specificity
     let priceRaw = null;
+    let parsed = null;
     for (const sel of PRICE_SELECTORS) {
-      const el = await page.$(sel);
-      if (el) {
-        const text = (await el.textContent()).trim();
-        if (text) {
-          priceRaw = text;
-          break;
-        }
+      const text = await pickPriceTextForSelector(page, sel, prefs.currency);
+      if (!text) continue;
+
+      const candidate = parsePrice(text, prefs.currency);
+      if (candidate) {
+        priceRaw = text;
+        parsed = candidate;
+        break;
       }
     }
 
-    const parsed = parsePrice(priceRaw, prefs.currency);
     const asin = extractAsin(url);
     const pageTitle = await page.title();
     const bodyText = (await page.textContent('body') || '').slice(0, 5000).toLowerCase();
@@ -153,3 +231,8 @@ async function scrapePrice(url) {
 }
 
 module.exports = { scrapePrice };
+module.exports.__test = {
+  PRICE_SELECTORS,
+  scorePriceCandidate,
+  chooseBestPriceCandidate,
+};

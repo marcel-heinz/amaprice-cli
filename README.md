@@ -43,6 +43,14 @@ amaprice list
 
 All commands support `--json`.
 
+## Testing
+
+Run regression and parser tests:
+
+```bash
+npm test
+```
+
 ## Tiered Background Model
 
 Each product has:
