@@ -1,7 +1,14 @@
 const { normalizeAmazonInput } = require('../url');
 const { resolveCliInput } = require('../input');
 const { scrapePrice } = require('../scraper');
-const { upsertProduct, insertPrice, updateProductById } = require('../db');
+const {
+  upsertProduct,
+  insertPrice,
+  updateProductById,
+  upsertUserSubscription,
+  upsertProductLatestPrice,
+} = require('../db');
+const { getUserId } = require('../user-context');
 const { normalizeTier, computeNextScrapeAt } = require('../tiering');
 
 module.exports = function (program) {
@@ -55,8 +62,18 @@ module.exports = function (program) {
           price: result.price.numeric,
           currency: result.price.currency,
         });
+        await upsertProductLatestPrice({
+          productId: product.id,
+          price: result.price.numeric,
+          currency: result.price.currency,
+          scrapedAt: priceRecord.scraped_at,
+          source: 'railway_dom',
+          confidence: 0.8,
+        }).catch(() => {});
 
         const nextTier = normalizeTier(product.tier, selectedTier || 'daily');
+        const userId = getUserId();
+        let subscription = null;
         try {
           await updateProductById(product.id, {
             last_price: result.price.numeric,
@@ -66,8 +83,14 @@ module.exports = function (program) {
             next_scrape_at: computeNextScrapeAt(nextTier),
             last_price_change_at: priceRecord.scraped_at,
           });
+          subscription = await upsertUserSubscription({
+            userId,
+            productId: product.id,
+            tierPref: selectedTier || null,
+            isActive: true,
+          });
         } catch {
-          // Background scheduling fields may not exist before migration.
+          // Background scheduling/subscription fields may not exist before migration.
         }
 
         if (opts.json) {
@@ -83,6 +106,8 @@ module.exports = function (program) {
             tier: nextTier,
             tierMode: opts.manualTier ? 'manual' : (opts.autoTier ? 'auto' : (product.tier_mode || 'auto')),
             active: opts.inactive ? false : (product.is_active ?? true),
+            userId,
+            subscribed: Boolean(subscription),
           }));
         } else {
           console.log(`Tracking: ${result.title}`);

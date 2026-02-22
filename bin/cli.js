@@ -2,7 +2,19 @@
 
 const { program } = require('commander');
 const pkg = require('../package.json');
-const KNOWN_COMMANDS = new Set(['price', 'track', 'history', 'list', 'sync', 'tier', 'help']);
+const KNOWN_COMMANDS = new Set([
+  'price',
+  'track',
+  'history',
+  'list',
+  'sync',
+  'tier',
+  'subscribe',
+  'unsubscribe',
+  'subscriptions',
+  'collector',
+  'help',
+]);
 
 const userArgs = process.argv.slice(2);
 if (userArgs.length > 0) {
@@ -25,5 +37,9 @@ require('../src/commands/history')(program);
 require('../src/commands/list')(program);
 require('../src/commands/sync')(program);
 require('../src/commands/tier')(program);
+require('../src/commands/subscribe')(program);
+require('../src/commands/unsubscribe')(program);
+require('../src/commands/subscriptions')(program);
+require('../src/commands/collector')(program);
 
 program.parse();

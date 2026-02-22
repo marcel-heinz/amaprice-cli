@@ -5,12 +5,17 @@ module.exports = function (program) {
     .command('sync')
     .description('Run background sync for due products (for cron/worker usage)')
     .option('--limit <n>', 'Max products to process in one run', '20')
+    .option('--orchestrator', 'Use orchestrator queue flow')
+    .option('--legacy', 'Force legacy due-products flow')
     .option('--json', 'Output as JSON')
     .action(async (opts) => {
       const limit = Math.max(1, parseInt(opts.limit, 10) || 20);
+      const useOrchestrator = opts.legacy
+        ? false
+        : (opts.orchestrator ? true : undefined);
 
       try {
-        const report = await runDueSync({ limit });
+        const report = await runDueSync({ limit, useOrchestrator });
         if (opts.json) {
           console.log(JSON.stringify(report));
         } else {

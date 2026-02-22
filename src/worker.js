@@ -3,6 +3,7 @@ const { runDueSync } = require('./sync-runner');
 const intervalMinutes = Math.max(1, Number(process.env.SYNC_INTERVAL_MINUTES) || 5);
 const limit = Math.max(1, Number(process.env.SYNC_LIMIT) || 20);
 const runOnce = process.env.SYNC_RUN_ONCE === '1';
+const orchestratorEnabled = process.env.ORCHESTRATOR_ENABLED === '1';
 
 let stopping = false;
 
@@ -13,7 +14,7 @@ function sleep(ms) {
 async function runOnceWithLogs() {
   const started = new Date();
   try {
-    const report = await runDueSync({ limit });
+    const report = await runDueSync({ limit, useOrchestrator: orchestratorEnabled });
     const tookMs = Date.now() - started.getTime();
     console.log(`[worker] processed=${report.processed} success=${report.success} failed=${report.failed} took_ms=${tookMs}`);
   } catch (err) {
@@ -22,7 +23,7 @@ async function runOnceWithLogs() {
 }
 
 async function main() {
-  console.log(`[worker] starting interval=${intervalMinutes}m limit=${limit} run_once=${runOnce ? 'yes' : 'no'}`);
+  console.log(`[worker] starting interval=${intervalMinutes}m limit=${limit} run_once=${runOnce ? 'yes' : 'no'} orchestrator=${orchestratorEnabled ? 'yes' : 'no'}`);
 
   if (runOnce) {
     await runOnceWithLogs();
@@ -47,4 +48,3 @@ main().catch((err) => {
   console.error(`[worker] fatal=${err.message}`);
   process.exit(1);
 });
-

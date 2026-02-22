@@ -11,6 +11,8 @@
     "sync": "node bin/cli.js sync",
     "worker": "node src/worker.js",
     "worker:once": "SYNC_RUN_ONCE=1 node src/worker.js",
+    "collector:start": "node bin/cli.js collector start",
+    "collector:once": "node bin/cli.js collector run-once",
     "analyze:scrape": "node scripts/analyze-scrape-attempts.js",
     "test": "node --test",
     "postinstall": "npx --yes playwright install chromium"

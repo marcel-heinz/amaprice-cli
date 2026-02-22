@@ -1,13 +1,60 @@
-const { listProducts } = require('../db');
+const { listProducts, getUserSubscriptions } = require('../db');
 const { formatPrice } = require('../format');
+const { getUserId } = require('../user-context');
 
 module.exports = function (program) {
   program
     .command('list')
-    .description('Show all tracked products with latest price')
+    .description('Show tracked products (subscriptions by default)')
+    .option('--global', 'Show global tracked products instead of current user subscriptions')
+    .option('--all', 'Include inactive subscriptions (subscriptions mode only)')
     .option('--json', 'Output as JSON')
     .action(async (opts) => {
       try {
+        if (!opts.global) {
+          const userId = getUserId();
+          try {
+            const subscriptions = await getUserSubscriptions(userId, { activeOnly: !opts.all });
+            if (opts.json) {
+              console.log(JSON.stringify(subscriptions.map((row) => ({
+                asin: row.product?.asin || null,
+                title: row.product?.title || null,
+                url: row.product?.url || null,
+                domain: row.product?.domain || null,
+                active: row.is_active,
+                tier: row.product?.tier || 'daily',
+                tierPref: row.tier_pref || null,
+                latestPrice: row.latestPrice ? parseFloat(row.latestPrice.price) : null,
+                currency: row.latestPrice?.currency || null,
+                lastScraped: row.latestPrice?.scraped_at || null,
+              }))));
+              return;
+            }
+
+            if (subscriptions.length === 0) {
+              console.log('No subscriptions found. Use `amaprice subscribe <url-or-asin>` to start tracking.');
+              return;
+            }
+
+            console.log(`Subscriptions for ${userId}:`);
+            for (const row of subscriptions) {
+              const price = row.latestPrice
+                ? formatPrice(parseFloat(row.latestPrice.price), row.latestPrice.currency)
+                : 'N/A';
+              const tier = row.product?.tier || 'daily';
+              const status = row.is_active ? tier : 'paused';
+              console.log(`  ${row.product?.asin || 'unknown'}  ${price}  [${status}]  ${row.product?.title || ''}`);
+            }
+            return;
+          } catch (err) {
+            const msg = String(err.message || '');
+            if (!/hybrid orchestration migration/i.test(msg)) {
+              throw err;
+            }
+            // Hybrid schema unavailable; fallback to legacy global listing.
+          }
+        }
+
         const products = await listProducts();
 
         if (opts.json) {

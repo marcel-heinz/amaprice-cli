@@ -1,4 +1,5 @@
 const { scrapePrice } = require('./scraper');
+const { runOrchestratedSync } = require('./orchestrator/runner');
 const {
   claimDueProducts,
   getRecentPrices,
@@ -88,7 +89,22 @@ function buildNoPriceErrorMessage(result) {
     : 'Could not extract price from the page.';
 }
 
-async function runDueSync({ limit = 20 } = {}) {
+function shouldUseOrchestrator({ useOrchestrator } = {}) {
+  if (typeof useOrchestrator === 'boolean') return useOrchestrator;
+  return process.env.ORCHESTRATOR_ENABLED === '1';
+}
+
+async function runDueSync({ limit = 20, useOrchestrator } = {}) {
+  if (shouldUseOrchestrator({ useOrchestrator })) {
+    return runOrchestratedSync({
+      limit,
+      executor: 'railway',
+      routeHint: 'collector_first',
+      allowVision: true,
+      allowRailwayDomFallback: true,
+    });
+  }
+
   const safeLimit = Math.max(1, Number(limit) || 20);
   const dueProducts = await claimDueProducts(safeLimit);
 
