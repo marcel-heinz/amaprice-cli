@@ -14,7 +14,7 @@ async function ensureCollectorState() {
   return state;
 }
 
-async function runCollectorOnce({ limit = 5 } = {}) {
+async function runCollectorOnce({ limit = 10 } = {}) {
   const state = await ensureCollectorState();
   await heartbeatCollector({
     collectorId: state.collectorId,
@@ -42,8 +42,8 @@ async function runCollectorOnce({ limit = 5 } = {}) {
   });
 }
 
-async function runCollectorLoop({ limit = 5, pollSeconds = 20 } = {}) {
-  const safePollMs = Math.max(5, Number(pollSeconds) || 20) * 1000;
+async function runCollectorLoop({ limit = 10, pollSeconds = 180 } = {}) {
+  const safePollMs = Math.max(30, Number(pollSeconds) || 180) * 1000;
 
   while (true) {
     const started = Date.now();

@@ -9,6 +9,7 @@ const {
   upsertProductLatestPrice,
 } = require('../db');
 const { getUserId } = require('../user-context');
+const { maybeEnsureBackgroundOn } = require('../background/service');
 const { normalizeTier, computeNextScrapeAt } = require('../tiering');
 
 module.exports = function (program) {
@@ -74,6 +75,7 @@ module.exports = function (program) {
         const nextTier = normalizeTier(product.tier, selectedTier || 'daily');
         const userId = getUserId();
         let subscription = null;
+        const background = await maybeEnsureBackgroundOn({ userId });
         try {
           await updateProductById(product.id, {
             last_price: result.price.numeric,
@@ -108,12 +110,18 @@ module.exports = function (program) {
             active: opts.inactive ? false : (product.is_active ?? true),
             userId,
             subscribed: Boolean(subscription),
+            background,
           }));
         } else {
           console.log(`Tracking: ${result.title}`);
           console.log(`ASIN:     ${result.asin}`);
           console.log(`Price:    ${result.priceRaw}`);
           console.log(`Tier:     ${nextTier}`);
+          if (background.running) {
+            console.log(`Background collector: running (${background.pollSeconds || 180}s poll)`);
+          } else if (background.attempted && background.error) {
+            console.log(`Background collector: setup failed (${background.error})`);
+          }
           console.log(`Saved to Supabase.`);
         }
       } catch (err) {

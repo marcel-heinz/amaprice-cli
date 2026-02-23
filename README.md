@@ -35,6 +35,9 @@ amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6"
 # start tracking with a tier
 amaprice track B0DZ5P7JD6 --tier daily
 
+# subscribe current user to shared catalog product
+amaprice subscribe B0DZ5P7JD6
+
 # show history
 amaprice history B0DZ5P7JD6 --limit 30
 
@@ -58,12 +61,34 @@ Short links from Amazon apps (for example `amzn.eu`, `amzn.to`, `a.co`) are acce
 | `amaprice [url\|asin]` | Shortcut for `amaprice price [url\|asin]` |
 | `amaprice price [url\|asin]` | One-shot lookup and silent history insert |
 | `amaprice track [url\|asin]` | Track product + current price (`--tier`, `--manual-tier`, `--auto-tier`, `--inactive`) |
+| `amaprice subscribe [url\|asin]` | Subscribe current user to shared product catalog entry |
+| `amaprice unsubscribe <url\|asin>` | Disable current user subscription |
+| `amaprice subscriptions` | List user subscriptions with latest known prices |
 | `amaprice history <url\|asin>` | Show history (`--limit N`) |
 | `amaprice list` | List tracked products + latest price |
 | `amaprice sync --limit <n>` | Run background sync for due products |
+| `amaprice background <on\|off\|status>` | Manage true background collector service |
 | `amaprice tier <url\|asin> <hourly\|daily\|weekly>` | Set tier/status (`--auto`, `--manual`, `--activate`, `--deactivate`) |
 
 All commands support `--json`.
+
+## Background Service (Auto)
+
+`track` and `subscribe` automatically ensure a true background collector service is running.
+
+This service:
+- keeps running after terminal close
+- survives shell sessions
+- polls queue jobs every `180s` by default
+- currently uses `launchd` on macOS
+
+Simple control commands:
+
+```bash
+amaprice background status
+amaprice background on
+amaprice background off
+```
 
 ## Currently Supported Store
 
@@ -177,6 +202,9 @@ Environment variables used by the npm package:
 | `SYNC_INTERVAL_MINUTES` | `5` | `src/worker.js` | Worker loop interval |
 | `SYNC_LIMIT` | `20` | `src/worker.js`, `amaprice sync --limit` | Max due products per run |
 | `SYNC_RUN_ONCE` | `0` | `src/worker.js` | Set `1` for single run and exit |
+| `AMAPRICE_AUTO_BACKGROUND` | `1` | `track`, `subscribe` | Set `0` to disable auto background startup |
+| `COLLECTOR_POLL_SECONDS` | `180` | background collector service | Queue poll interval |
+| `COLLECTOR_LIMIT` | `10` | background collector service | Max claimed jobs per poll |
 | `VISION_FALLBACK_ENABLED` | `0` | `src/extractors/pipeline.js` | Enable screenshot + vision fallback when HTML/JSON extraction fails |
 | `OPENROUTER_API_KEY` | none | `src/extractors/vision.js` | Preferred vision provider key |
 | `VISION_MODEL` | `google/gemini-3-flash-preview` | `src/extractors/vision.js` | OpenRouter model ID for vision extraction |

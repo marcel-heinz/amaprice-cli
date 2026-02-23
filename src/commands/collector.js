@@ -23,16 +23,16 @@ function getDefaultCollectorName() {
 module.exports = function (program) {
   program
     .command('collector <action>')
-    .description('Manage local collector daemon (enable|disable|status|pause|resume|run-once|start)')
+    .description('Manage local collector process (advanced/debug)')
     .option('--name <name>', 'Collector name override')
-    .option('--limit <n>', 'Max jobs per loop/once run', '5')
-    .option('--poll-seconds <n>', 'Polling interval for start loop', '20')
+    .option('--limit <n>', 'Max jobs per loop/once run', '10')
+    .option('--poll-seconds <n>', 'Polling interval for start loop', '180')
     .option('--json', 'Output as JSON')
     .action(async (action, opts) => {
       const normalizedAction = String(action || '').trim().toLowerCase();
       const userId = getUserId();
-      const limit = Math.max(1, Number(opts.limit) || 5);
-      const pollSeconds = Math.max(5, Number(opts.pollSeconds) || 20);
+      const limit = Math.max(1, Number(opts.limit) || 10);
+      const pollSeconds = Math.max(30, Number(opts.pollSeconds) || 180);
 
       try {
         if (normalizedAction === 'enable') {

@@ -43,6 +43,7 @@ async function clearCollectorState() {
 }
 
 module.exports = {
+  getStateDir,
   getCollectorStatePath,
   readCollectorState,
   writeCollectorState,

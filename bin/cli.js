@@ -12,6 +12,7 @@ const KNOWN_COMMANDS = new Set([
   'subscribe',
   'unsubscribe',
   'subscriptions',
+  'background',
   'collector',
   'help',
 ]);
@@ -40,6 +41,7 @@ require('../src/commands/tier')(program);
 require('../src/commands/subscribe')(program);
 require('../src/commands/unsubscribe')(program);
 require('../src/commands/subscriptions')(program);
+require('../src/commands/background')(program);
 require('../src/commands/collector')(program);
 
 program.parse();

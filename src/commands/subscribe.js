@@ -10,6 +10,7 @@ const {
   upsertUserSubscription,
 } = require('../db');
 const { getUserId } = require('../user-context');
+const { maybeEnsureBackgroundOn } = require('../background/service');
 const { normalizeTier, computeNextScrapeAt } = require('../tiering');
 
 module.exports = function (program) {
@@ -95,6 +96,7 @@ module.exports = function (program) {
           tierPref: selectedTier,
           isActive: true,
         });
+        const background = await maybeEnsureBackgroundOn({ userId });
 
         if (opts.json) {
           console.log(JSON.stringify({
@@ -111,6 +113,7 @@ module.exports = function (program) {
             },
             initialPrice: initial?.price?.numeric || null,
             initialCurrency: initial?.price?.currency || null,
+            background,
           }));
           return;
         }
@@ -118,6 +121,11 @@ module.exports = function (program) {
         console.log(`Subscribed: ${product.asin} (${product.title})`);
         console.log(`User:       ${userId}`);
         console.log(`Tier pref:  ${subscription.tier_pref || 'default'}`);
+        if (background.running) {
+          console.log(`Background: running (${background.pollSeconds || 180}s poll)`);
+        } else if (background.attempted && background.error) {
+          console.log(`Background: setup failed (${background.error})`);
+        }
       } catch (err) {
         console.error(`Error: ${err.message}`);
         process.exit(1);
