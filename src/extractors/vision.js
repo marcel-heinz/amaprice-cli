@@ -185,6 +185,19 @@ function isVisionEnabled() {
   return process.env.VISION_FALLBACK_ENABLED === '1';
 }
 
+function buildVisionPrompt() {
+  return [
+    'You extract the final payable price from an Amazon product-detail screenshot.',
+    'Respond with JSON only using exactly keys: price, currency, confidence, is_blocked, reason, raw_text.',
+    'price must be a decimal number (dot separator), or null when uncertain.',
+    'Only use the main buy-box product price for the shown product.',
+    'Ignore list/strike prices, "from" ranges, installment/monthly values, coupons, shipping, used/new offers, bundle prices, and sponsored/related product prices.',
+    'If the page is captcha/challenge/login/cookie-wall and price is not clearly visible, set is_blocked=true and price=null.',
+    'If multiple plausible prices exist, set price=null.',
+    'confidence must be a number between 0 and 1.',
+  ].join(' ');
+}
+
 async function requestOpenRouter({ apiKey, model, prompt, base64 }) {
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -291,12 +304,7 @@ async function extractPriceFromScreenshotBuffer(imageBuffer, {
     };
   }
 
-  const prompt = [
-    'Extract the currently visible final product price from this e-commerce screenshot.',
-    'Respond with JSON only and keys: price, currency, confidence, is_blocked, reason, raw_text.',
-    'Use decimal number for price (example: 79.99).',
-    'If price is not clearly visible, set price=null and confidence<=0.5.',
-  ].join(' ');
+  const prompt = buildVisionPrompt();
 
   const transport = selected.name === 'openrouter'
     ? await requestOpenRouter({
@@ -352,6 +360,7 @@ module.exports = {
 };
 
 module.exports.__test = {
+  buildVisionPrompt,
   extractJsonBlock,
   extractOutputText,
   getProvider,

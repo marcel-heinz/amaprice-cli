@@ -183,6 +183,9 @@ Environment variables used by the npm package:
 | `VISION_PROVIDER` | auto | `src/extractors/vision.js` | Optional force value: `openrouter` or `openai` |
 | `OPENROUTER_HTTP_REFERER` | none | `src/extractors/vision.js` | Optional OpenRouter attribution header |
 | `OPENROUTER_TITLE` | none | `src/extractors/vision.js` | Optional OpenRouter attribution header |
+| `VISION_GUARDRAIL_ENABLED` | `1` | `src/extractors/pipeline.js` | Reject suspicious vision outputs before DB writes |
+| `VISION_GUARDRAIL_MIN_CONFIDENCE` | `0.92` | `src/extractors/pipeline.js` | Minimum confidence required for vision price acceptance |
+| `VISION_GUARDRAIL_MAX_REL_DELTA` | `0.5` | `src/extractors/pipeline.js` | Max relative delta vs last known price before rejecting vision price |
 | `OPENAI_API_KEY` | none | `src/extractors/vision.js` | Legacy fallback if `OPENROUTER_API_KEY` is unset |
 
 For production background workers, prefer the Supabase **service role key**.
@@ -202,6 +205,9 @@ Steps:
    - `VISION_FALLBACK_ENABLED=1`
    - `OPENROUTER_API_KEY=<your-openrouter-key>`
    - `VISION_MODEL=google/gemini-3-flash-preview`
+   - `VISION_GUARDRAIL_ENABLED=1`
+   - `VISION_GUARDRAIL_MIN_CONFIDENCE=0.92`
+   - `VISION_GUARDRAIL_MAX_REL_DELTA=0.5`
 4. Ensure builder is Dockerfile (root `Dockerfile`).
 5. Deploy.
 6. Confirm logs show `[worker] processed=...`.

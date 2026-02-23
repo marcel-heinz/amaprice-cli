@@ -94,6 +94,7 @@ async function processClaimedJob(job, {
       domain: job.domain,
       allowVision,
       allowRailwayDomFallback,
+      baselinePrice: job.last_price,
     });
 
     if (!result.price) {

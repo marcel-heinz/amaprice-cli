@@ -81,3 +81,10 @@ test('vision provider prefers openrouter key when both keys are set', () => {
   assert.equal(selected.apiKey, 'or-key');
   assert.equal(selected.model, 'google/gemini-3-flash-preview');
 });
+
+test('vision prompt includes strict price-selection constraints', () => {
+  const prompt = __test.buildVisionPrompt();
+  assert.match(prompt, /main buy-box product price/i);
+  assert.match(prompt, /Ignore list\/strike prices/i);
+  assert.match(prompt, /captcha\/challenge\/login\/cookie-wall/i);
+});

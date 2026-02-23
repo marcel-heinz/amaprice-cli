@@ -106,14 +106,81 @@ function normalizeScraperResult(result, method) {
   };
 }
 
+function toFiniteNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function readFloatEnv(name, fallback, { min = null, max = null } = {}) {
+  const raw = process.env[name];
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (min != null && parsed < min) return min;
+  if (max != null && parsed > max) return max;
+  return parsed;
+}
+
+function isVisionGuardrailEnabled() {
+  return process.env.VISION_GUARDRAIL_ENABLED !== '0';
+}
+
+function getVisionMinConfidence() {
+  return readFloatEnv('VISION_GUARDRAIL_MIN_CONFIDENCE', 0.92, { min: 0, max: 1 });
+}
+
+function getVisionMaxRelativeDelta() {
+  return readFloatEnv('VISION_GUARDRAIL_MAX_REL_DELTA', 0.5, { min: 0, max: 10 });
+}
+
+function evaluateVisionGuardrails(result, {
+  baselinePrice = null,
+  enabled = isVisionGuardrailEnabled(),
+  minConfidence = getVisionMinConfidence(),
+  maxRelativeDelta = getVisionMaxRelativeDelta(),
+} = {}) {
+  if (!enabled) {
+    return { accepted: true, reason: null };
+  }
+
+  if (!result || result.method !== 'vision' || !result.price) {
+    return { accepted: true, reason: null };
+  }
+
+  const confidence = toFiniteNumber(result.confidence) || 0;
+  if (confidence < minConfidence) {
+    return {
+      accepted: false,
+      reason: `low_confidence:${confidence.toFixed(3)}<${Number(minConfidence).toFixed(3)}`,
+    };
+  }
+
+  const extracted = toFiniteNumber(result.price?.numeric);
+  const baseline = toFiniteNumber(baselinePrice);
+  if (extracted == null || baseline == null || baseline <= 0) {
+    return { accepted: true, reason: null };
+  }
+
+  const relativeDelta = Math.abs(extracted - baseline) / baseline;
+  if (relativeDelta > maxRelativeDelta) {
+    return {
+      accepted: false,
+      reason: `relative_delta:${relativeDelta.toFixed(3)}>${Number(maxRelativeDelta).toFixed(3)}`,
+    };
+  }
+
+  return { accepted: true, reason: null };
+}
+
 async function runCollectionPipeline({
   url,
   domain = null,
   allowVision = true,
   allowRailwayDomFallback = true,
+  baselinePrice = null,
 }) {
   const effectiveDomain = domain || extractDomain(url);
   const fallbackCurrency = fallbackCurrencyForDomain(effectiveDomain);
+  let rejectedVisionResult = null;
 
   const htmlJsonResult = normalizeScraperResult(
     await runHtmlJsonExtraction(url, { fallbackCurrency }),
@@ -139,8 +206,29 @@ async function runCollectionPipeline({
         finalUrl: shot.finalUrl,
       }, 'vision');
 
-      if (normalizedVision.price || normalizedVision.blockedSignal) {
+      if (normalizedVision.blockedSignal) {
         return normalizedVision;
+      }
+
+      if (normalizedVision.price) {
+        const guardrail = evaluateVisionGuardrails(normalizedVision, { baselinePrice });
+        if (guardrail.accepted) {
+          return normalizedVision;
+        }
+
+        rejectedVisionResult = {
+          ...normalizedVision,
+          status: 'no_price',
+          price: null,
+          blockedSignal: false,
+          blockedReason: null,
+          debug: {
+            ...(normalizedVision.debug || {}),
+            guardrail: 'rejected',
+            guardrailReason: guardrail.reason,
+            baselinePrice: toFiniteNumber(baselinePrice),
+          },
+        };
       }
     } catch (err) {
       // Continue to DOM fallback.
@@ -152,7 +240,7 @@ async function runCollectionPipeline({
     return normalizeScraperResult(domResult, 'railway_dom');
   }
 
-  return htmlJsonResult;
+  return rejectedVisionResult || htmlJsonResult;
 }
 
 module.exports = {
@@ -163,4 +251,7 @@ module.exports = {
 module.exports.__test = {
   fallbackCurrencyForDomain,
   normalizeScraperResult,
+  evaluateVisionGuardrails,
+  getVisionMinConfidence,
+  getVisionMaxRelativeDelta,
 };
