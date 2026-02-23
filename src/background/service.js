@@ -263,6 +263,7 @@ async function enableLaunchdService({
   const plistPath = getLaunchdPlistPath(label);
   const logPath = getDaemonLogPath();
   const daemonEntry = getDaemonEntryPath();
+  const target = buildServiceTarget(label);
 
   await fs.mkdir(path.dirname(plistPath), { recursive: true });
   await fs.mkdir(path.dirname(logPath), { recursive: true });
@@ -283,13 +284,22 @@ async function enableLaunchdService({
   });
   await fs.writeFile(plistPath, plist, 'utf8');
 
-  const bootstrap = await runLaunchctl(['bootstrap', getLaunchdDomain(), plistPath], { allowFailure: true });
+  // If service was previously disabled via `background off`, re-enable first.
+  await runLaunchctl(['enable', target], { allowFailure: true });
+
+  let bootstrap = await runLaunchctl(['bootstrap', getLaunchdDomain(), plistPath], { allowFailure: true });
+  if (!bootstrap.ok && !isAlreadyLoadedError(bootstrap)) {
+    // Recover from stale loaded/disabled state by clearing then bootstrapping once more.
+    await runLaunchctl(['bootout', target], { allowFailure: true });
+    await runLaunchctl(['enable', target], { allowFailure: true });
+    bootstrap = await runLaunchctl(['bootstrap', getLaunchdDomain(), plistPath], { allowFailure: true });
+  }
   if (!bootstrap.ok && !isAlreadyLoadedError(bootstrap)) {
     throw new Error(`Could not bootstrap launchd service: ${bootstrap.stderr || bootstrap.stdout || 'unknown error'}`);
   }
 
-  await runLaunchctl(['enable', buildServiceTarget(label)], { allowFailure: true });
-  const kick = await runLaunchctl(['kickstart', '-k', buildServiceTarget(label)], { allowFailure: true });
+  await runLaunchctl(['enable', target], { allowFailure: true });
+  const kick = await runLaunchctl(['kickstart', '-k', target], { allowFailure: true });
   if (!kick.ok) {
     await runLaunchctl(['start', label], { allowFailure: true });
   }
