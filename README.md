@@ -29,13 +29,13 @@ npx amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6"
 ## Quickstart
 
 ```bash
-# one-shot lookup
+# one-shot lookup (no subscription)
 amaprice price "https://www.amazon.de/dp/B0DZ5P7JD6"
 
-# start tracking with a tier
+# start tracking + subscribe current user + auto-start background collector
 amaprice track B0DZ5P7JD6 --tier daily
 
-# subscribe current user to shared catalog product
+# or subscribe directly to an existing shared catalog product
 amaprice subscribe B0DZ5P7JD6
 
 # show history
@@ -43,6 +43,16 @@ amaprice history B0DZ5P7JD6 --limit 30
 
 # list tracked products
 amaprice list
+
+# list all subscriptions for current user (including paused)
+amaprice subscriptions --all
+
+# stop one product subscription for current user
+amaprice unsubscribe B0DZ5P7JD6
+
+# stop/start background collector service
+amaprice background off
+amaprice background on
 ```
 
 ## Input Modes
@@ -59,18 +69,46 @@ Short links from Amazon apps (for example `amzn.eu`, `amzn.to`, `a.co`) are acce
 | Command | Description |
 |---|---|
 | `amaprice [url\|asin]` | Shortcut for `amaprice price [url\|asin]` |
-| `amaprice price [url\|asin]` | One-shot lookup and silent history insert |
-| `amaprice track [url\|asin]` | Track product + current price (`--tier`, `--manual-tier`, `--auto-tier`, `--inactive`) |
+| `amaprice price [url\|asin]` | One-shot lookup (no subscription) and silent history insert |
+| `amaprice track [url\|asin]` | Track product + subscribe current user + auto-start background (`--tier`, `--manual-tier`, `--auto-tier`, `--inactive`) |
 | `amaprice subscribe [url\|asin]` | Subscribe current user to shared product catalog entry |
 | `amaprice unsubscribe <url\|asin>` | Disable current user subscription |
 | `amaprice subscriptions` | List user subscriptions with latest known prices |
 | `amaprice history <url\|asin>` | Show history (`--limit N`) |
-| `amaprice list` | List tracked products + latest price |
+| `amaprice list` | List current user subscriptions + latest price (default view) |
+| `amaprice list --global` | List global shared catalog tracked products |
 | `amaprice sync --limit <n>` | Run background sync for due products |
 | `amaprice background <on\|off\|status>` | Manage true background collector service |
 | `amaprice tier <url\|asin> <hourly\|daily\|weekly>` | Set tier/status (`--auto`, `--manual`, `--activate`, `--deactivate`) |
 
 All commands support `--json`.
+
+## Most Common User Flows
+
+### One-time Price Check (No Subscription)
+
+```bash
+amaprice price B0DZ5P7JD6
+```
+
+This returns the current price immediately and does not create a user subscription.
+
+### Subscribe + Run in Background
+
+```bash
+amaprice track B0DZ5P7JD6
+amaprice background status --json
+```
+
+`track` (and `subscribe`) auto-starts the background collector on macOS (`launchd`).
+You can close your terminal after this; the service keeps running.
+
+### Stop Product + Stop Background Service
+
+```bash
+amaprice unsubscribe B0DZ5P7JD6
+amaprice background off
+```
 
 ## Background Service (Auto)
 
@@ -145,7 +183,11 @@ Run this SQL in Supabase SQL Editor:
 
 `supabase/migrations/20260220_add_price_history_currency.sql`
 
-These migrations add tier fields, indexes, telemetry, worker health rollups, and `price_history.currency`.
+`supabase/migrations/20260222_add_hybrid_orchestration.sql`
+
+`supabase/migrations/20260223_enforce_collector_first_claiming.sql`
+
+These migrations add tier fields, indexes, telemetry, worker health rollups, `price_history.currency`, collector orchestration tables/functions, and strict collector-first claim policy.
 
 Note: these files are additive migrations and expect existing `products` + `price_history` tables.
 
