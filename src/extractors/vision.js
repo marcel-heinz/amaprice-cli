@@ -37,7 +37,67 @@ function extractOutputText(payload) {
     return parts.join('\n').trim();
   }
 
+  if (Array.isArray(payload.choices)) {
+    const parts = [];
+    for (const choice of payload.choices) {
+      const content = choice?.message?.content;
+      if (typeof content === 'string') {
+        parts.push(content);
+        continue;
+      }
+
+      if (!Array.isArray(content)) continue;
+      for (const chunk of content) {
+        if (typeof chunk?.text === 'string') parts.push(chunk.text);
+      }
+    }
+    return parts.join('\n').trim();
+  }
+
   return '';
+}
+
+function getProvider({
+  preferredProvider = null,
+  openRouterApiKey = process.env.OPENROUTER_API_KEY,
+  openAiApiKey = process.env.OPENAI_API_KEY,
+  model = process.env.VISION_MODEL || null,
+} = {}) {
+  const preferred = String(preferredProvider || '').trim().toLowerCase();
+
+  if (preferred === 'openai' && openAiApiKey) {
+    return {
+      name: 'openai',
+      apiKey: openAiApiKey,
+      model: model || 'gpt-4.1-mini',
+    };
+  }
+
+  if (preferred === 'openrouter' && openRouterApiKey) {
+    return {
+      name: 'openrouter',
+      apiKey: openRouterApiKey,
+      model: model || 'google/gemini-3-flash-preview',
+    };
+  }
+
+  if (openRouterApiKey) {
+    return {
+      name: 'openrouter',
+      apiKey: openRouterApiKey,
+      model: model || 'google/gemini-3-flash-preview',
+    };
+  }
+
+  if (openAiApiKey) {
+    return {
+      name: 'openai',
+      apiKey: openAiApiKey,
+      model: model || 'gpt-4.1-mini',
+    };
+  }
+
+  return null;
 }
 
 function toConfidence(value) {
@@ -125,16 +185,86 @@ function isVisionEnabled() {
   return process.env.VISION_FALLBACK_ENABLED === '1';
 }
 
+async function requestOpenRouter({ apiKey, model, prompt, base64 }) {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'authorization': `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+      ...(process.env.OPENROUTER_HTTP_REFERER ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER } : {}),
+      ...(process.env.OPENROUTER_TITLE ? { 'X-Title': process.env.OPENROUTER_TITLE } : {}),
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: `data:image/png;base64,${base64}` } },
+          ],
+        },
+      ],
+      temperature: 0,
+    }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  return {
+    response,
+    payload,
+    outputText: extractOutputText(payload),
+  };
+}
+
+async function requestOpenAi({ apiKey, model, prompt, base64 }) {
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'authorization': `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      input: [
+        {
+          role: 'user',
+          content: [
+            { type: 'input_text', text: prompt },
+            { type: 'input_image', image_url: `data:image/png;base64,${base64}` },
+          ],
+        },
+      ],
+    }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  return {
+    response,
+    payload,
+    outputText: extractOutputText(payload),
+  };
+}
+
 async function extractPriceFromScreenshotBuffer(imageBuffer, {
   fallbackCurrency = null,
-  model = process.env.VISION_MODEL || 'gpt-4.1-mini',
-  apiKey = process.env.OPENAI_API_KEY,
+  model = process.env.VISION_MODEL || null,
+  provider = process.env.VISION_PROVIDER || null,
+  openRouterApiKey = process.env.OPENROUTER_API_KEY,
+  openAiApiKey = process.env.OPENAI_API_KEY,
 } = {}) {
   if (!isVisionEnabled()) {
     return null;
   }
 
-  if (!apiKey) {
+  const selected = getProvider({
+    preferredProvider: provider,
+    openRouterApiKey,
+    openAiApiKey,
+    model,
+  });
+
+  if (!selected) {
     return {
       status: 'no_price',
       method: 'vision',
@@ -143,7 +273,7 @@ async function extractPriceFromScreenshotBuffer(imageBuffer, {
       confidence: 0,
       blockedSignal: false,
       blockedReason: null,
-      debug: { source: 'vision', reason: 'missing_api_key' },
+      debug: { source: 'vision', reason: 'missing_api_key', expected: 'OPENROUTER_API_KEY or OPENAI_API_KEY' },
     };
   }
 
@@ -168,28 +298,21 @@ async function extractPriceFromScreenshotBuffer(imageBuffer, {
     'If price is not clearly visible, set price=null and confidence<=0.5.',
   ].join(' ');
 
-  const response = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: {
-      'authorization': `Bearer ${apiKey}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      input: [
-        {
-          role: 'user',
-          content: [
-            { type: 'input_text', text: prompt },
-            { type: 'input_image', image_url: `data:image/png;base64,${base64}` },
-          ],
-        },
-      ],
-    }),
-  });
+  const transport = selected.name === 'openrouter'
+    ? await requestOpenRouter({
+      apiKey: selected.apiKey,
+      model: selected.model,
+      prompt,
+      base64,
+    })
+    : await requestOpenAi({
+      apiKey: selected.apiKey,
+      model: selected.model,
+      prompt,
+      base64,
+    });
 
-  const payload = await response.json().catch(() => ({}));
-  const outputText = extractOutputText(payload);
+  const outputText = transport.outputText;
   const normalized = normalizeVisionResult(outputText, fallbackCurrency);
 
   if (!normalized) {
@@ -204,7 +327,10 @@ async function extractPriceFromScreenshotBuffer(imageBuffer, {
       debug: {
         source: 'vision',
         reason: 'invalid_model_output',
-        httpStatus: response.status,
+        httpStatus: transport.response.status,
+        provider: selected.name,
+        model: selected.model,
+        providerError: transport.payload?.error?.message || null,
       },
     };
   }
@@ -213,8 +339,9 @@ async function extractPriceFromScreenshotBuffer(imageBuffer, {
     ...normalized,
     debug: {
       ...(normalized.debug || {}),
-      httpStatus: response.status,
-      model,
+      httpStatus: transport.response.status,
+      provider: selected.name,
+      model: selected.model,
     },
   };
 }
@@ -226,6 +353,8 @@ module.exports = {
 
 module.exports.__test = {
   extractJsonBlock,
+  extractOutputText,
+  getProvider,
   normalizeVisionResult,
   toConfidence,
 };

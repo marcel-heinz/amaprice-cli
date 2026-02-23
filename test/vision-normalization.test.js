@@ -42,3 +42,42 @@ test('vision confidence coercion clamps values', () => {
   assert.equal(__test.toConfidence(-1), 0);
   assert.equal(__test.toConfidence('0.5'), 0.5);
 });
+
+test('vision output text extractor parses OpenRouter chat response payload', () => {
+  const payload = {
+    choices: [
+      {
+        message: {
+          content: JSON.stringify({
+            price: 129.95,
+            currency: 'EUR',
+            confidence: 0.89,
+            is_blocked: false,
+            reason: 'visible',
+            raw_text: '129,95 EUR',
+          }),
+        },
+      },
+    ],
+  };
+
+  const raw = __test.extractOutputText(payload);
+  const out = __test.normalizeVisionResult(raw, 'EUR');
+  assert.ok(out);
+  assert.equal(out.status, 'ok');
+  assert.equal(out.price.numeric, 129.95);
+  assert.equal(out.price.currency, 'EUR');
+});
+
+test('vision provider prefers openrouter key when both keys are set', () => {
+  const selected = __test.getProvider({
+    openRouterApiKey: 'or-key',
+    openAiApiKey: 'oa-key',
+    model: null,
+  });
+
+  assert.ok(selected);
+  assert.equal(selected.name, 'openrouter');
+  assert.equal(selected.apiKey, 'or-key');
+  assert.equal(selected.model, 'google/gemini-3-flash-preview');
+});

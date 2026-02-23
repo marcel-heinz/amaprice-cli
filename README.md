@@ -177,6 +177,13 @@ Environment variables used by the npm package:
 | `SYNC_INTERVAL_MINUTES` | `5` | `src/worker.js` | Worker loop interval |
 | `SYNC_LIMIT` | `20` | `src/worker.js`, `amaprice sync --limit` | Max due products per run |
 | `SYNC_RUN_ONCE` | `0` | `src/worker.js` | Set `1` for single run and exit |
+| `VISION_FALLBACK_ENABLED` | `0` | `src/extractors/pipeline.js` | Enable screenshot + vision fallback when HTML/JSON extraction fails |
+| `OPENROUTER_API_KEY` | none | `src/extractors/vision.js` | Preferred vision provider key |
+| `VISION_MODEL` | `google/gemini-3-flash-preview` | `src/extractors/vision.js` | OpenRouter model ID for vision extraction |
+| `VISION_PROVIDER` | auto | `src/extractors/vision.js` | Optional force value: `openrouter` or `openai` |
+| `OPENROUTER_HTTP_REFERER` | none | `src/extractors/vision.js` | Optional OpenRouter attribution header |
+| `OPENROUTER_TITLE` | none | `src/extractors/vision.js` | Optional OpenRouter attribution header |
+| `OPENAI_API_KEY` | none | `src/extractors/vision.js` | Legacy fallback if `OPENROUTER_API_KEY` is unset |
 
 For production background workers, prefer the Supabase **service role key**.
 
@@ -192,6 +199,9 @@ Steps:
 3. Optional env vars:
    - `SYNC_INTERVAL_MINUTES=5`
    - `SYNC_LIMIT=20`
+   - `VISION_FALLBACK_ENABLED=1`
+   - `OPENROUTER_API_KEY=<your-openrouter-key>`
+   - `VISION_MODEL=google/gemini-3-flash-preview`
 4. Ensure builder is Dockerfile (root `Dockerfile`).
 5. Deploy.
 6. Confirm logs show `[worker] processed=...`.
