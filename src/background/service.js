@@ -114,15 +114,17 @@ function isLaunchdSupported(platform = process.platform) {
   return platform === 'darwin';
 }
 
-function getLaunchdDomain() {
+function getLaunchdDomains() {
   if (typeof process.getuid !== 'function') {
     throw new Error('launchd requires a POSIX uid');
   }
-  return `gui/${process.getuid()}`;
+  const uid = process.getuid();
+  return [`gui/${uid}`, `user/${uid}`];
 }
 
-function buildServiceTarget(label) {
-  return `${getLaunchdDomain()}/${label}`;
+function buildServiceTarget(label, domain = null) {
+  const safeDomain = domain || getLaunchdDomains()[0];
+  return `${safeDomain}/${label}`;
 }
 
 async function runLaunchctl(args, { allowFailure = false } = {}) {
@@ -233,24 +235,38 @@ async function getLaunchdServiceStatus({ label }) {
       backend: 'launchd',
       label,
       plistPath,
+      domain: null,
       installed: false,
       loaded: false,
       running: false,
     };
   }
 
-  const print = await runLaunchctl(['print', buildServiceTarget(label)], { allowFailure: true });
-  const output = `${print.stdout}\n${print.stderr}`;
-  const loaded = print.ok;
-  const running = loaded && (/state = running/i.test(output) || /pid = \d+/i.test(output));
+  const domains = getLaunchdDomains();
+  for (const domain of domains) {
+    const print = await runLaunchctl(['print', buildServiceTarget(label, domain)], { allowFailure: true });
+    if (!print.ok) continue;
+    const output = `${print.stdout}\n${print.stderr}`;
+    const running = /state = running/i.test(output) || /pid = \d+/i.test(output);
+    return {
+      backend: 'launchd',
+      label,
+      plistPath,
+      domain,
+      installed: true,
+      loaded: true,
+      running,
+    };
+  }
 
   return {
     backend: 'launchd',
     label,
     plistPath,
+    domain: domains[0] || null,
     installed: true,
-    loaded,
-    running,
+    loaded: false,
+    running: false,
   };
 }
 
@@ -263,7 +279,6 @@ async function enableLaunchdService({
   const plistPath = getLaunchdPlistPath(label);
   const logPath = getDaemonLogPath();
   const daemonEntry = getDaemonEntryPath();
-  const target = buildServiceTarget(label);
 
   await fs.mkdir(path.dirname(plistPath), { recursive: true });
   await fs.mkdir(path.dirname(logPath), { recursive: true });
@@ -284,33 +299,53 @@ async function enableLaunchdService({
   });
   await fs.writeFile(plistPath, plist, 'utf8');
 
-  // If service was previously disabled via `background off`, re-enable first.
-  await runLaunchctl(['enable', target], { allowFailure: true });
+  const domains = getLaunchdDomains();
+  const errors = [];
 
-  let bootstrap = await runLaunchctl(['bootstrap', getLaunchdDomain(), plistPath], { allowFailure: true });
-  if (!bootstrap.ok && !isAlreadyLoadedError(bootstrap)) {
-    // Recover from stale loaded/disabled state by clearing then bootstrapping once more.
-    await runLaunchctl(['bootout', target], { allowFailure: true });
-    await runLaunchctl(['enable', target], { allowFailure: true });
-    bootstrap = await runLaunchctl(['bootstrap', getLaunchdDomain(), plistPath], { allowFailure: true });
-  }
-  if (!bootstrap.ok && !isAlreadyLoadedError(bootstrap)) {
-    throw new Error(`Could not bootstrap launchd service: ${bootstrap.stderr || bootstrap.stdout || 'unknown error'}`);
+  for (const domain of domains) {
+    const domainTarget = buildServiceTarget(label, domain);
+
+    // Clean stale state first, then bootstrap fresh.
+    await runLaunchctl(['bootout', domainTarget], { allowFailure: true });
+    await runLaunchctl(['disable', domainTarget], { allowFailure: true });
+    await runLaunchctl(['enable', domainTarget], { allowFailure: true });
+
+    let bootstrap = await runLaunchctl(['bootstrap', domain, plistPath], { allowFailure: true });
+    if (!bootstrap.ok && !isAlreadyLoadedError(bootstrap)) {
+      await runLaunchctl(['bootout', domainTarget], { allowFailure: true });
+      await runLaunchctl(['enable', domainTarget], { allowFailure: true });
+      bootstrap = await runLaunchctl(['bootstrap', domain, plistPath], { allowFailure: true });
+    }
+
+    if (!bootstrap.ok && !isAlreadyLoadedError(bootstrap)) {
+      errors.push(`${domain}: ${bootstrap.stderr || bootstrap.stdout || 'unknown error'}`);
+      continue;
+    }
+
+    await runLaunchctl(['enable', domainTarget], { allowFailure: true });
+    const kick = await runLaunchctl(['kickstart', '-k', domainTarget], { allowFailure: true });
+    if (!kick.ok) {
+      await runLaunchctl(['start', label], { allowFailure: true });
+    }
+
+    const status = await getLaunchdServiceStatus({ label });
+    if (status.loaded) {
+      return status;
+    }
+    errors.push(`${domain}: bootstrapped but service not loaded`);
   }
 
-  await runLaunchctl(['enable', target], { allowFailure: true });
-  const kick = await runLaunchctl(['kickstart', '-k', target], { allowFailure: true });
-  if (!kick.ok) {
-    await runLaunchctl(['start', label], { allowFailure: true });
-  }
-
-  return getLaunchdServiceStatus({ label });
+  const msg = errors.length > 0 ? errors.join(' | ') : 'unknown error';
+  throw new Error(`Could not bootstrap launchd service: ${msg}`);
 }
 
 async function disableLaunchdService({ label }) {
   const plistPath = getLaunchdPlistPath(label);
-  await runLaunchctl(['bootout', buildServiceTarget(label)], { allowFailure: true });
-  await runLaunchctl(['disable', buildServiceTarget(label)], { allowFailure: true });
+  for (const domain of getLaunchdDomains()) {
+    const target = buildServiceTarget(label, domain);
+    await runLaunchctl(['bootout', target], { allowFailure: true });
+    await runLaunchctl(['disable', target], { allowFailure: true });
+  }
   try {
     await fs.unlink(plistPath);
   } catch (err) {
@@ -342,7 +377,7 @@ async function ensureBackgroundOn({
   const { collector, statePath } = await ensureCollectorEnabled({
     userId,
     collectorName,
-    status: 'active',
+    status: 'paused',
   });
 
   const service = await enableLaunchdService({
@@ -351,6 +386,10 @@ async function ensureBackgroundOn({
     limit: safeLimit,
     userId,
   });
+
+  if (!service.loaded) {
+    throw new Error('launchd service did not load');
+  }
 
   await heartbeatCollector({
     collectorId: collector.id,
@@ -510,6 +549,8 @@ module.exports.__test = {
   resolvePollSeconds,
   getLaunchdLabel,
   getLaunchdPlistPath,
+  getLaunchdDomains,
+  buildServiceTarget,
   renderLaunchdPlist,
   isLaunchdSupported,
 };

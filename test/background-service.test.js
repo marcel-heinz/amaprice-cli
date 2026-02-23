@@ -32,3 +32,13 @@ test('background launchd plist renderer includes core fields', () => {
   assert.match(xml, /--poll-seconds/);
   assert.match(xml, /AMAPRICE_USER_ID/);
 });
+
+test('background launchd targets include gui and user domains', () => {
+  const domains = __test.getLaunchdDomains();
+  assert.equal(domains.length >= 2, true);
+  assert.match(domains[0], /^gui\/\d+$/);
+  assert.match(domains[1], /^user\/\d+$/);
+
+  const target = __test.buildServiceTarget('sh.amaprice.collector.user', domains[1]);
+  assert.match(target, /^user\/\d+\/sh\.amaprice\.collector\.user$/);
+});
