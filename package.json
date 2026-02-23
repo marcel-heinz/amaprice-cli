@@ -1,6 +1,6 @@
 {
   "name": "amaprice",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "CLI tool to scrape and track Amazon product prices",
   "main": "src/scraper.js",
   "type": "commonjs",
