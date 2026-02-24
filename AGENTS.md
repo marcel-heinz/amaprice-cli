@@ -6,6 +6,7 @@ This file gives coding agents a fast, reliable baseline for working in this repo
 
 - `amaprice` is a Node.js CLI for Amazon price checks, tracking, and background collection.
 - The repo also contains a marketing site in `website/` (Next.js).
+- Live website: `https://amaprice.sh`
 - Root runtime is CommonJS (`"type": "commonjs"`). `website/` is ESM.
 
 ## Key Paths
