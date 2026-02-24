@@ -1,4 +1,6 @@
 import WorkerHealthCard from "./components/worker-health-card";
+import PricesSpotlight from "./components/prices-spotlight";
+import SiteHeader from "./components/site-header";
 
 const softwareApplicationJsonLd = {
   "@context": "https://schema.org",
@@ -49,27 +51,7 @@ export default function Home() {
         }}
       />
       <div className="backdrop" />
-      <header className="topbar container">
-        <a className="brand" href="/" aria-label="amaprice home">
-          <img
-            className="brand-logo"
-            src="/amaprice_logo.png"
-            alt="amaprice"
-            width="172"
-            height="49"
-          />
-        </a>
-        <nav>
-          <a
-            className="link"
-            href="https://github.com/marcel-heinz/amaprice-cli"
-            target="_blank"
-            rel="noreferrer"
-          >
-            GitHub
-          </a>
-        </nav>
-      </header>
+      <SiteHeader active="home" />
 
       <main className="container">
         <section className="hero">
@@ -87,8 +69,11 @@ export default function Home() {
           </div>
 
           <div className="cta-row">
+            <a className="btn btn-primary" href="/prices">
+              Explore Prices
+            </a>
             <a
-              className="btn btn-primary"
+              className="btn btn-ghost"
               href="https://github.com/marcel-heinz/amaprice-cli"
               target="_blank"
               rel="noreferrer"
@@ -100,6 +85,8 @@ export default function Home() {
             </a>
           </div>
         </section>
+
+        <PricesSpotlight />
 
         <section id="quickstart" className="panel">
           <h2>Quickstart</h2>

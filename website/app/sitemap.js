@@ -9,6 +9,11 @@ const staticEntries = [
     priority: 1
   },
   {
+    url: "/prices",
+    changeFrequency: "daily",
+    priority: 0.9
+  },
+  {
     url: "/llms.txt",
     changeFrequency: "weekly",
     priority: 0.7

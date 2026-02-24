@@ -55,6 +55,12 @@ body {
   backdrop-filter: blur(8px);
 }
 
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
 .brand {
   display: inline-flex;
   align-items: center;
@@ -75,6 +81,11 @@ body {
 
 .link:hover {
   border-color: var(--text);
+}
+
+.link-active {
+  border-color: var(--primary);
+  color: var(--primary-strong);
 }
 
 main {
@@ -188,6 +199,11 @@ code {
   border-color: var(--text);
 }
 
+.btn-small {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.88rem;
+}
+
 .panel {
   margin-top: 1.5rem;
   padding: 1.2rem;
@@ -225,6 +241,294 @@ pre {
 .panel p {
   margin: 0;
   color: var(--muted);
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.muted-text {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.spotlight-panel {
+  margin-top: 1.2rem;
+}
+
+.spotlight-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.spotlight-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.58rem;
+}
+
+.spotlight-domain {
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 0.73rem;
+  color: var(--primary-strong);
+}
+
+.spotlight-prices {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.spotlight-prices strong {
+  color: var(--text);
+  font-size: 1.03rem;
+}
+
+.spotlight-prices span {
+  color: var(--muted);
+  text-decoration: line-through;
+  font-size: 0.86rem;
+}
+
+.spotlight-drop {
+  color: #0c4f32;
+  font-weight: 500;
+  font-size: 0.92rem;
+}
+
+.spotlight-note {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.prices-hero h1 {
+  max-width: 18ch;
+}
+
+.prices-explorer {
+  margin-top: 0;
+}
+
+.prices-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 360px 1fr;
+  min-height: 560px;
+}
+
+.catalog-pane {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.9rem;
+  background: #fffefa;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.search-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.62rem 0.7rem;
+  background: #ffffff;
+  color: var(--text);
+  font: inherit;
+}
+
+.search-input:focus {
+  outline: 2px solid rgba(18, 107, 68, 0.24);
+  border-color: rgba(18, 107, 68, 0.46);
+}
+
+.catalog-count {
+  color: var(--muted);
+  font-size: 0.83rem;
+}
+
+.catalog-list {
+  overflow: auto;
+  max-height: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.58rem;
+  padding-right: 0.15rem;
+}
+
+.product-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 0.66rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.34rem;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text);
+}
+
+.product-item:hover {
+  border-color: #9fb4ad;
+  box-shadow: 0 8px 18px rgba(24, 33, 31, 0.06);
+}
+
+.product-item.active {
+  border-color: rgba(18, 107, 68, 0.65);
+  background: #f3fef8;
+}
+
+.product-item-domain {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.7rem;
+  color: var(--primary);
+}
+
+.product-item-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.81rem;
+}
+
+.product-item-cta {
+  color: var(--primary-strong);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.detail-pane {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1rem;
+  background: #fffefa;
+  display: flex;
+  flex-direction: column;
+  gap: 0.86rem;
+}
+
+.detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.detail-head h3 {
+  font-size: 1.35rem;
+  margin: 0.1rem 0 0.4rem;
+}
+
+.detail-meta {
+  color: var(--muted);
+  font-size: 0.89rem;
+}
+
+.detail-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.range-btn {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--text);
+  padding: 0.35rem 0.68rem;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.range-btn.active {
+  background: #0f6641;
+  border-color: #0f6641;
+  color: #f3fff7;
+}
+
+.metric-grid {
+  display: grid;
+  gap: 0.72rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.chart-wrap {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: #ffffff;
+}
+
+.price-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chart-grid-line {
+  stroke: rgba(24, 33, 31, 0.11);
+  stroke-width: 1;
+}
+
+.chart-grid-label {
+  fill: #728680;
+  font-size: 10.5px;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.chart-area {
+  fill: url(#priceAreaGradient);
+}
+
+.chart-line {
+  fill: none;
+  stroke: #0e6a43;
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart-point {
+  fill: #0a5d3a;
+  stroke: #e7fff0;
+  stroke-width: 2;
+}
+
+.chart-axis {
+  margin-top: 0.3rem;
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.chart-empty {
+  min-height: 220px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1.2rem;
 }
 
 .worker-health {
@@ -329,11 +633,38 @@ pre {
 @media (max-width: 840px) {
   .cmd-grid,
   .value-grid,
-  .health-grid {
+  .health-grid,
+  .metric-grid {
     grid-template-columns: 1fr;
+  }
+
+  .topnav {
+    gap: 0.55rem;
+    font-size: 0.92rem;
   }
 
   .topbar {
     padding-top: 0.8rem;
+  }
+
+  .section-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .spotlight-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .prices-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-list {
+    max-height: 320px;
+  }
+
+  .detail-head {
+    flex-direction: column;
   }
 }
