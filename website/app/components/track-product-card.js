@@ -26,6 +26,9 @@ function statusTitle(status) {
 function statusMessage(state) {
   switch (state?.status) {
     case "queued":
+      if (!state?.asin && !state?.product?.asin) {
+        return "Your link is accepted. We are resolving it to a product before first scrape.";
+      }
       return "Your request is queued. A collector will claim it shortly.";
     case "collecting":
       return "A collector picked it up and is running the first scrape now.";

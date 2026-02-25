@@ -1,5 +1,6 @@
 const { runCollectionPipeline } = require('../extractors/pipeline');
 const {
+  getProductByAsin,
   enqueueDueCollectionJobs,
   claimCollectionJobs,
   completeCollectionJob,
@@ -7,10 +8,14 @@ const {
   insertCollectionAttempt,
   insertPrice,
   insertScrapeAttempt,
+  listPendingWebTrackRequests,
   upsertProductLatestPrice,
+  upsertProduct,
+  updateWebTrackRequestById,
   updateProductById,
   getRecentPrices,
 } = require('../db');
+const { normalizeAmazonInput, isAmazonUrl, extractDomain } = require('../url');
 const {
   normalizeTier,
   computeNextScrapeAt,
@@ -76,6 +81,119 @@ function nextJobStateAfterFailure(job) {
   const attempts = Number(job?.attempt_count) || 0;
   const maxAttempts = Number(job?.max_attempts) || 5;
   return attempts >= maxAttempts ? 'dead' : 'queued';
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function cleanJsonObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  return { ...value };
+}
+
+async function resolvePendingWebTrackRequests({ limit = 20 } = {}) {
+  const safeLimit = Math.max(1, Number(limit) || 20);
+  const pending = await listPendingWebTrackRequests(safeLimit);
+  if (!pending || pending.length === 0) {
+    return { processed: 0, resolved: 0, rejected: 0 };
+  }
+
+  let resolved = 0;
+  let rejected = 0;
+
+  for (const request of pending) {
+    const rawInput = String(request.raw_input || '').trim();
+    if (!rawInput) {
+      rejected += 1;
+      await updateWebTrackRequestById(request.id, {
+        status: 'rejected',
+        status_reason: 'invalid_amazon_input',
+        last_error: 'Input is empty and could not be resolved.',
+        completed_at: nowIso(),
+        request_meta: {
+          ...cleanJsonObject(request.request_meta),
+          resolution_stage: 'collector',
+          resolution_error: 'empty_input',
+          resolution_finished_at: nowIso(),
+        },
+      }).catch(() => {});
+      continue;
+    }
+
+    const defaultDomain = isAmazonUrl(rawInput) ? extractDomain(rawInput) : 'amazon.de';
+    let normalized = null;
+    try {
+      normalized = await normalizeAmazonInput(rawInput, defaultDomain);
+    } catch {
+      normalized = null;
+    }
+
+    if (!normalized) {
+      rejected += 1;
+      await updateWebTrackRequestById(request.id, {
+        status: 'rejected',
+        status_reason: 'invalid_amazon_input',
+        last_error: 'Could not resolve Amazon URL to a product ASIN.',
+        completed_at: nowIso(),
+        request_meta: {
+          ...cleanJsonObject(request.request_meta),
+          resolution_stage: 'collector',
+          resolution_error: 'asin_not_found',
+          resolution_finished_at: nowIso(),
+        },
+      }).catch(() => {});
+      continue;
+    }
+
+    const existingProduct = await getProductByAsin(normalized.asin);
+    const now = nowIso();
+
+    const product = existingProduct
+      ? await updateProductById(existingProduct.id, {
+        is_active: true,
+        next_scrape_at: now,
+        domain: normalized.domain,
+        url: normalized.url,
+      })
+      : await upsertProduct({
+        asin: normalized.asin,
+        title: `ASIN ${normalized.asin}`,
+        url: normalized.url,
+        domain: normalized.domain,
+        tier: 'daily',
+        tierMode: 'auto',
+        isActive: true,
+        nextScrapeAt: now,
+      });
+
+    resolved += 1;
+    await updateWebTrackRequestById(request.id, {
+      asin: normalized.asin,
+      domain: normalized.domain,
+      normalized_url: normalized.url,
+      product_id: product.id,
+      status: 'queued',
+      status_reason: null,
+      last_error: null,
+      queued_at: request.queued_at || now,
+      completed_at: null,
+      request_meta: {
+        ...cleanJsonObject(request.request_meta),
+        resolution_stage: 'collector',
+        resolution_source: 'normalize_amazon_input',
+        resolution_finished_at: now,
+      },
+    }).catch(() => {});
+  }
+
+  return {
+    processed: pending.length,
+    resolved,
+    rejected,
+  };
 }
 
 async function processClaimedJob(job, {
@@ -267,6 +385,9 @@ async function runOrchestratedSync({
 } = {}) {
   const safeLimit = Math.max(1, Number(limit) || 20);
 
+  await resolvePendingWebTrackRequests({
+    limit: Math.max(safeLimit * 2, safeLimit),
+  }).catch(() => {});
   await requeueExpiredCollectionJobs(200).catch(() => {});
   await enqueueDueCollectionJobs(Math.max(safeLimit * 2, safeLimit)).catch(() => {});
 
@@ -319,4 +440,5 @@ module.exports.__test = {
   classifyFailure,
   buildNoPriceErrorMessage,
   nextJobStateAfterFailure,
+  cleanJsonObject,
 };

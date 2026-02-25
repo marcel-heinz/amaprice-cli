@@ -54,6 +54,20 @@ function isMissingHybridSchema(error) {
   );
 }
 
+function isMissingWebTrackSchema(error) {
+  const code = String(error?.code || '');
+  const message = String(error?.message || '');
+  return (
+    code === '42P01'
+    || code === 'PGRST205'
+    || code === '42703'
+    || code === 'PGRST204'
+    || /relation .* does not exist/i.test(message)
+    || /column .* does not exist/i.test(message)
+    || /web_track_requests/i.test(message)
+  );
+}
+
 /**
  * Upsert a product by ASIN. Returns the product row.
  */
@@ -535,6 +549,51 @@ async function heartbeatCollector({
   return data;
 }
 
+async function listPendingWebTrackRequests(limit = 20) {
+  const supabase = getClient();
+  const safeLimit = Math.max(1, Number(limit) || 20);
+
+  const { data, error } = await supabase
+    .from('web_track_requests')
+    .select('id, raw_input, status, status_reason, request_meta, queued_at, created_at')
+    .eq('status', 'queued')
+    .is('product_id', null)
+    .order('created_at', { ascending: true })
+    .limit(safeLimit);
+
+  if (error) {
+    if (isMissingWebTrackSchema(error)) {
+      return [];
+    }
+    throw new Error(`Supabase web_track_requests error: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+async function updateWebTrackRequestById(requestId, patch) {
+  const supabase = getClient();
+  const payload = cleanPayload({
+    ...patch,
+    updated_at: new Date().toISOString(),
+  });
+
+  const { data, error } = await supabase
+    .from('web_track_requests')
+    .update(payload)
+    .eq('id', requestId)
+    .select()
+    .single();
+
+  if (error) {
+    if (isMissingWebTrackSchema(error)) {
+      return null;
+    }
+    throw new Error(`Supabase web_track_requests error: ${error.message}`);
+  }
+  return data;
+}
+
 async function enqueueDueCollectionJobs(limit = 20) {
   const supabase = getClient();
   const safeLimit = Math.max(1, Number(limit) || 20);
@@ -753,6 +812,8 @@ module.exports = {
   upsertCollector,
   getCollectorById,
   heartbeatCollector,
+  listPendingWebTrackRequests,
+  updateWebTrackRequestById,
   enqueueDueCollectionJobs,
   claimCollectionJobs,
   completeCollectionJob,

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { normalizeAmazonInput } from "../../../lib/server/amazon-input";
+import {
+  extractDomain,
+  isAmazonUrl,
+  normalizeAmazonInput
+} from "../../../lib/server/amazon-input";
 import {
   getSupabaseAdmin,
   hasSupabaseAdminConfig
@@ -252,6 +256,40 @@ export async function POST(request) {
 
     const normalized = await normalizeAmazonInput(rawInput);
     if (!normalized) {
+      if (isAmazonUrl(rawInput)) {
+        const now = new Date().toISOString();
+        const requestRow = await insertTrackRequest(supabase, {
+          visitor_id: visitorId,
+          ip_hash: ipHash,
+          source,
+          raw_input: rawInput,
+          domain: extractDomain(rawInput),
+          normalized_url: rawInput,
+          status: "queued",
+          status_reason: "pending_url_resolution",
+          queued_at: now,
+          request_meta: {
+            pending_url_resolution: true,
+            resolution_stage: "collector"
+          }
+        });
+
+        const response = NextResponse.json(
+          serializeTrackRequestResponse({
+            requestRow,
+            derivedState: {
+              status: "queued",
+              product: null,
+              latestPrice: null,
+              lastError: null
+            }
+          }),
+          { status: 202 }
+        );
+
+        return withVisitorCookie(response, visitorId, shouldSetCookie);
+      }
+
       const requestRow = await insertTrackRequest(supabase, {
         visitor_id: visitorId,
         ip_hash: ipHash,
