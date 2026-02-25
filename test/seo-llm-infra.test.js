@@ -112,6 +112,8 @@ test('llms documentation files exist and contain required sections', () => {
   assert.match(llms, /## Robots \+ Crawl Policy/);
   assert.match(llms, /It starts with Amazon support/i);
   assert.match(llms, /Walmart/i);
+  assert.match(llms, /## Public Interfaces For Agents/);
+  assert.match(llms, /\/api\/v1\/track-requests/);
 
   assert.match(llmsFull, /^# amaprice \(Full LLM Guide\)/m);
   assert.match(llmsFull, /## CLI Command Reference/);
@@ -121,6 +123,7 @@ test('llms documentation files exist and contain required sections', () => {
   assert.match(llmsFull, /## Store Coverage and Roadmap/);
   assert.match(llmsFull, /Live now:\s*Amazon/i);
   assert.match(llmsFull, /Next:\s*Walmart/i);
+  assert.match(llmsFull, /20260225_add_web_track_requests\.sql/);
 });
 
 test('layout metadata includes canonical + crawl + social configuration', () => {

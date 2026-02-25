@@ -1,5 +1,6 @@
 import PricesExplorer from "../components/prices-explorer";
 import SiteHeader from "../components/site-header";
+import TrackProductCard from "../components/track-product-card";
 
 const pageJsonLd = {
   "@context": "https://schema.org",
@@ -44,6 +45,7 @@ export default function PricesPage() {
             The explorer shows only valid tracked prices so charts stay clean,
             readable, and useful for buying decisions.
           </p>
+          <TrackProductCard source="prices" compact />
         </section>
         <PricesExplorer />
       </main>

@@ -187,7 +187,9 @@ Run this SQL in Supabase SQL Editor:
 
 `supabase/migrations/20260223_enforce_collector_first_claiming.sql`
 
-These migrations add tier fields, indexes, telemetry, worker health rollups, `price_history.currency`, collector orchestration tables/functions, and strict collector-first claim policy.
+`supabase/migrations/20260225_add_web_track_requests.sql`
+
+These migrations add tier fields, indexes, telemetry, worker health rollups, `price_history.currency`, collector orchestration tables/functions, strict collector-first claim policy, and website intake request tracking.
 
 Note: these files are additive migrations and expect existing `products` + `price_history` tables.
 
@@ -260,6 +262,18 @@ Environment variables used by the npm package:
 
 For production background workers, prefer the Supabase **service role key**.
 
+Website API runtime (Next.js server routes):
+
+| Variable | Default | Used by | Notes |
+|---|---|---|---|
+| `SUPABASE_URL` | none | website API routes | Server-side Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | none | website API routes | Required for secure writes (`/api/v1/track-requests`) |
+| `WEB_TRACK_RATE_LIMIT_WINDOW_SECONDS` | `300` | website API routes | Sliding rate-limit window |
+| `WEB_TRACK_RATE_LIMIT_MAX_REQUESTS_PER_IP` | `8` | website API routes | Rate-limit threshold per IP hash |
+| `WEB_TRACK_RATE_LIMIT_MAX_REQUESTS_PER_VISITOR` | `12` | website API routes | Rate-limit threshold per visitor cookie |
+| `WEB_TRACK_IP_HASH_PEPPER` | `amaprice-default-pepper` | website API routes | Pepper for deterministic IP hashing |
+| `TURNSTILE_SECRET_KEY` | none | website API routes | Optional CAPTCHA verification for intake endpoint |
+
 ## Railway Worker Deployment
 
 This repo includes:
@@ -292,18 +306,27 @@ npm run worker:once
 
 ## Vercel Website Deployment (`amaprice.sh`)
 
-Lean marketing site is a Next.js app in `website/`.
+The website is a server-capable Next.js app in `website/` with API routes.
 
 Steps:
 1. Import the repo in Vercel.
 2. Leave the project at repo root (deployment is controlled by root `vercel.json`).
 3. Set website env vars:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
    - `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` (for Google Search Console verification meta tag)
 4. Deploy.
 5. Add domain `amaprice.sh` in Vercel Domains and assign to this project.
 6. Set `www.amaprice.sh` redirect to `amaprice.sh`.
+
+### Website API Endpoints
+
+- `POST /api/v1/track-requests` - submit Amazon URL/ASIN intake request
+- `GET /api/v1/track-requests/:id` - poll request state (`queued`, `collecting`, `live`, ...)
+- `GET /api/v1/products` - live tracked products for website explorer
+- `GET /api/v1/products/:productId/history` - historical points for one product
+- `GET /api/v1/prices/recent` - recent global price points
+- `GET /api/v1/worker-health` - worker health rollup row
 
 Local website development:
 

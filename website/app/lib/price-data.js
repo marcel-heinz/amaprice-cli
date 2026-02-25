@@ -1,13 +1,6 @@
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
 function hasSupabaseConfig() {
-  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
-}
-
-function isMaybeMissingColumnError(error) {
-  const text = `${error?.code || ""} ${error?.message || ""} ${error?.details || ""}`;
-  return /PGRST204|42703|column .* does not exist/i.test(text);
+  // Data is served via internal API routes now.
+  return true;
 }
 
 function normalizeCurrency(value) {
@@ -20,27 +13,25 @@ function asNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-function buildUrl(path, query = {}) {
-  const url = new URL(`${SUPABASE_URL}/rest/v1/${path}`);
+function toTimestamp(value) {
+  const ts = Date.parse(String(value || ""));
+  return Number.isFinite(ts) ? ts : null;
+}
+
+function buildEndpoint(path, query = {}) {
+  const url = new URL(path, window.location.origin);
   for (const [key, value] of Object.entries(query)) {
     if (value === null || value === undefined || value === "") {
       continue;
     }
     url.searchParams.set(key, String(value));
   }
-  return url.toString();
+  return `${url.pathname}${url.search}`;
 }
 
-async function fetchRows(path, query = {}) {
-  if (!hasSupabaseConfig()) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY.");
-  }
-
-  const response = await fetch(buildUrl(path, query), {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-    },
+async function fetchJson(path, query = {}) {
+  const endpoint = buildEndpoint(path, query);
+  const response = await fetch(endpoint, {
     cache: "no-store"
   });
 
@@ -53,15 +44,12 @@ async function fetchRows(path, query = {}) {
       parsed = null;
     }
 
-    const error = new Error(parsed?.message || `Supabase request failed (${response.status}).`);
-    error.status = response.status;
-    error.code = parsed?.code || null;
-    error.details = parsed?.details || raw;
-    throw error;
+    throw new Error(
+      parsed?.error || parsed?.message || `API request failed (${response.status}).`
+    );
   }
 
-  const rows = await response.json();
-  return Array.isArray(rows) ? rows : [];
+  return response.json();
 }
 
 function normalizeProduct(row) {
@@ -71,15 +59,10 @@ function normalizeProduct(row) {
     title: String(row?.title || "").trim() || "Untitled product",
     url: String(row?.url || "").trim() || null,
     domain: String(row?.domain || "").trim() || "unknown",
-    createdAt: row?.created_at || null,
-    lastScrapedAt: row?.last_scraped_at || null,
-    lastPrice: asNumber(row?.last_price)
+    createdAt: row?.createdAt || row?.created_at || null,
+    lastScrapedAt: row?.lastScrapedAt || row?.last_scraped_at || null,
+    lastPrice: asNumber(row?.lastPrice ?? row?.last_price)
   };
-}
-
-function toTimestamp(value) {
-  const ts = Date.parse(String(value || ""));
-  return Number.isFinite(ts) ? ts : null;
 }
 
 export function normalizePriceRow(row) {
@@ -108,45 +91,25 @@ export function filterValidPriceRows(rows) {
 }
 
 export async function fetchProducts({ limit = 400 } = {}) {
-  const select = "id,asin,title,url,domain,created_at,last_price,last_scraped_at";
-  try {
-    const rows = await fetchRows("products", {
-      select,
-      order: "created_at.desc",
-      limit
-    });
-    return rows.map(normalizeProduct).filter((row) => row.id && row.asin);
-  } catch (error) {
-    if (!isMaybeMissingColumnError(error)) {
-      throw error;
-    }
+  const rows = await fetchJson("/api/v1/products", {
+    limit
+  });
 
-    const fallbackRows = await fetchRows("products", {
-      select: "id,asin,title,url,domain,created_at",
-      order: "created_at.desc",
-      limit
-    });
-
-    return fallbackRows.map(normalizeProduct).filter((row) => row.id && row.asin);
-  }
+  return (Array.isArray(rows) ? rows : [])
+    .map(normalizeProduct)
+    .filter((row) => row.id && row.asin && Number.isFinite(row.lastPrice));
 }
 
 export async function fetchProductHistory(productId, { limit = 1500 } = {}) {
-  const rows = await fetchRows("price_history", {
-    select: "product_id,price,currency,scraped_at",
-    product_id: `eq.${productId}`,
-    order: "scraped_at.asc",
+  const rows = await fetchJson(`/api/v1/products/${encodeURIComponent(productId)}/history`, {
     limit
   });
   return filterValidPriceRows(rows);
 }
 
 export async function fetchRecentPriceHistory({ hours = 72, limit = 3500 } = {}) {
-  const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-  const rows = await fetchRows("price_history", {
-    select: "product_id,price,currency,scraped_at",
-    scraped_at: `gte.${since}`,
-    order: "scraped_at.desc",
+  const rows = await fetchJson("/api/v1/prices/recent", {
+    hours,
     limit
   });
   return filterValidPriceRows(rows);

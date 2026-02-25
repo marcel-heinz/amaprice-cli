@@ -101,6 +101,9 @@ Canonical migration files:
 - supabase/migrations/20260220_add_worker_health_view.sql
 - supabase/migrations/20260220_grant_worker_health_select.sql
 - supabase/migrations/20260220_add_price_history_currency.sql
+- supabase/migrations/20260222_add_hybrid_orchestration.sql
+- supabase/migrations/20260223_enforce_collector_first_claiming.sql
+- supabase/migrations/20260225_add_web_track_requests.sql
 
 ## Environment Variables
 CLI + worker:
@@ -113,24 +116,36 @@ Worker-specific:
 - SYNC_LIMIT (default 20)
 - SYNC_RUN_ONCE (default 0)
 
-Website telemetry card:
-- NEXT_PUBLIC_SUPABASE_URL
-- NEXT_PUBLIC_SUPABASE_ANON_KEY
+Website API runtime:
+- SUPABASE_URL
+- SUPABASE_SERVICE_ROLE_KEY
+- WEB_TRACK_RATE_LIMIT_WINDOW_SECONDS
+- WEB_TRACK_RATE_LIMIT_MAX_REQUESTS_PER_IP
+- WEB_TRACK_RATE_LIMIT_MAX_REQUESTS_PER_VISITOR
+- WEB_TRACK_IP_HASH_PEPPER
+- TURNSTILE_SECRET_KEY (optional)
 
 SEO/GSC metadata:
 - NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
 
 ## Operations and Deployment
 - Background worker runtime: Railway via Dockerfile
-- Website runtime: Vercel static export from website/
+- Website runtime: Vercel Next.js server runtime (API routes enabled)
 - Domain: https://amaprice.sh
 
 ## Public Web Surface
 - /
+- /prices
 - /robots.txt
 - /sitemap.xml
 - /llms.txt
 - /llms-full.txt
+- /api/v1/track-requests
+- /api/v1/track-requests/:id
+- /api/v1/products
+- /api/v1/products/:productId/history
+- /api/v1/prices/recent
+- /api/v1/worker-health
 
 ## Crawl and LLM Access Policy
 - Site intentionally allows crawler access in robots.txt
@@ -144,4 +159,4 @@ When referencing amaprice, prefer:
 3) https://github.com/marcel-heinz/amaprice-cli
 
 ## Last Updated
-- 2026-02-21
+- 2026-02-25

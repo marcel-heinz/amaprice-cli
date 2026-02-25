@@ -41,7 +41,15 @@ It starts with Amazon support and expands to Walmart and other major e-commerce 
 - https://amaprice.sh/llms-full.txt
 
 ## Public Interfaces For Agents
-There is no public HTTP API on amaprice.sh. The public interface is the CLI command surface and documented SQL schema/migrations in the GitHub repository.
+Public HTTP endpoints on amaprice.sh:
+- POST /api/v1/track-requests
+- GET /api/v1/track-requests/:id
+- GET /api/v1/products
+- GET /api/v1/products/:productId/history
+- GET /api/v1/prices/recent
+- GET /api/v1/worker-health
+
+The CLI command surface remains the primary automation interface, with website APIs focused on website ingestion and visualization.
 
 ## Data + Sync Model (High Level)
 - Tracks products by ASIN or URL

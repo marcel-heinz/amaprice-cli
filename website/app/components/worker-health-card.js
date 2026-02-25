@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const REFRESH_MS = 60_000;
 
 function formatDateTime(value) {
@@ -50,31 +48,26 @@ export default function WorkerHealthCard() {
   );
 
   const loadHealth = useCallback(async () => {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      setError(
-        "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY."
-      );
-      setLoading(false);
-      return;
-    }
-
     try {
-      const url = `${SUPABASE_URL}/rest/v1/worker_health?select=*&limit=1`;
-      const response = await fetch(url, {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-        },
+      const response = await fetch("/api/v1/worker-health", {
         cache: "no-store"
       });
 
       if (!response.ok) {
-        const body = await response.text();
-        throw new Error(`Supabase request failed (${response.status}): ${body}`);
+        const raw = await response.text();
+        let parsed = null;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          parsed = null;
+        }
+        throw new Error(
+          parsed?.error || parsed?.message || `API request failed (${response.status}).`
+        );
       }
 
-      const rows = await response.json();
-      setData(Array.isArray(rows) ? rows[0] || null : null);
+      const row = await response.json();
+      setData(row || null);
       setError(null);
       setLastUpdatedAt(new Date().toISOString());
     } catch (err) {
@@ -106,8 +99,6 @@ export default function WorkerHealthCard() {
       {error ? (
         <p className="health-note health-error">
           {error}
-          {" "}
-          Make sure the `worker_health` view exists and is selectable for `anon`.
         </p>
       ) : null}
 
@@ -149,4 +140,3 @@ export default function WorkerHealthCard() {
     </section>
   );
 }
-

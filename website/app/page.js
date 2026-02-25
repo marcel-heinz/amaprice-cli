@@ -1,6 +1,7 @@
 import WorkerHealthCard from "./components/worker-health-card";
 import PricesSpotlight from "./components/prices-spotlight";
 import SiteHeader from "./components/site-header";
+import TrackProductCard from "./components/track-product-card";
 
 const softwareApplicationJsonLd = {
   "@context": "https://schema.org",
@@ -84,6 +85,8 @@ export default function Home() {
               Quickstart
             </a>
           </div>
+
+          <TrackProductCard source="home" />
         </section>
 
         <PricesSpotlight />

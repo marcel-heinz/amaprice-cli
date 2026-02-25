@@ -216,7 +216,7 @@ export default function PricesExplorer() {
 
     async function loadCatalog() {
       if (!hasSupabaseConfig()) {
-        setCatalogError("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+        setCatalogError("Website API is not configured.");
         setCatalogLoading(false);
         return;
       }
@@ -332,8 +332,6 @@ export default function PricesExplorer() {
       {catalogError ? (
         <p className="spotlight-note health-error">
           {catalogError}
-          {" "}
-          Set public Supabase env vars to enable the explorer.
         </p>
       ) : null}
 

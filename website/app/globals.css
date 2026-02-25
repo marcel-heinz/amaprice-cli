@@ -134,6 +134,113 @@ h3 {
   margin: 1rem 0 1.5rem;
 }
 
+.track-intake {
+  margin-top: 1.3rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.95rem;
+  background: #fffefa;
+  box-shadow: 0 8px 20px rgba(24, 33, 31, 0.05);
+}
+
+.track-intake.compact {
+  margin-top: 1rem;
+}
+
+.track-intake-head h2 {
+  font-size: 1.18rem;
+  margin-bottom: 0.25rem;
+}
+
+.track-intake-head p {
+  margin: 0 0 0.8rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.track-intake-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.track-intake-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.58rem;
+}
+
+.track-status-card {
+  margin-top: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 0.72rem;
+}
+
+.track-status-card.status-queued {
+  border-color: #bdd2c9;
+}
+
+.track-status-card.status-collecting {
+  border-color: #90bbab;
+  background: #f2fbf7;
+}
+
+.track-status-card.status-live {
+  border-color: #7eb79e;
+  background: #ecfbf2;
+}
+
+.track-status-card.status-failed,
+.track-status-card.status-rate_limited,
+.track-status-card.status-rejected {
+  border-color: #efc2bb;
+  background: #fff3f1;
+}
+
+.track-status-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.track-status-head strong {
+  font-size: 0.93rem;
+}
+
+.track-status-asin {
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.track-status-message {
+  margin: 0.48rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.track-status-title {
+  margin: 0.44rem 0 0;
+  color: var(--text);
+  font-size: 0.91rem;
+}
+
+.track-status-actions {
+  margin-top: 0.62rem;
+  display: flex;
+  align-items: center;
+  gap: 0.58rem;
+  flex-wrap: wrap;
+}
+
+.track-status-note {
+  color: var(--muted);
+  font-size: 0.81rem;
+}
+
 .install-card {
   display: inline-flex;
   flex-direction: column;
@@ -187,6 +294,11 @@ code {
 
 .btn-primary:hover {
   background: var(--primary-strong);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-ghost {
@@ -666,5 +778,9 @@ pre {
 
   .detail-head {
     flex-direction: column;
+  }
+
+  .track-intake-row {
+    grid-template-columns: 1fr;
   }
 }

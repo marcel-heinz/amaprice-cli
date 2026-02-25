@@ -64,7 +64,7 @@ export default function PricesSpotlight() {
 
     async function load() {
       if (!hasSupabaseConfig()) {
-        setError("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+        setError("Website API is not configured.");
         setLoading(false);
         return;
       }
@@ -112,8 +112,6 @@ export default function PricesSpotlight() {
       {error ? (
         <p className="spotlight-note health-error">
           {error}
-          {" "}
-          Set public Supabase env vars to enable live price content.
         </p>
       ) : null}
 
