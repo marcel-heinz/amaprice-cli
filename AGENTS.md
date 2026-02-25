@@ -53,6 +53,10 @@ Website:
 
 - Vercel deploys from repo root using root `vercel.json` commands that run inside `website/` (`cd website && ...`).
 - Keep `next`, `react`, and `react-dom` present in root `package.json` `devDependencies` so Vercel framework detection does not fail when root directory is the repository root.
+- Keep `vercel.json` install command in this pattern:
+  - `npm install --ignore-scripts --omit=prod && cd website && npm install`
+  - Reason: this installs root dev deps for framework detection without triggering root `postinstall` (Playwright browser download), then installs website deps.
+- Do not change install command to only `cd website && npm install`; that causes Vercel Next.js detection to fail in this monorepo layout.
 - If you change this model (for example, Vercel Root Directory set to `website`), you must also update `vercel.json` install/build/dev commands accordingly.
 
 ## Coding Conventions
