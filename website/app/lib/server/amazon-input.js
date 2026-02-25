@@ -26,6 +26,24 @@ const HTML_ASIN_PATTERNS = [
   /"(?:currentAsin|parentAsin|landingAsin)"\s*:\s*"([A-Z0-9]{10})"/i,
   /"(?:canonicalUrl|productUrl|dpUrl|redirectUrl)"\s*:\s*"[^"]*(?:\/dp\/|\/gp\/product\/|\/gp\/aw\/d\/)([A-Z0-9]{10})(?=[/?"&]|$)/i
 ];
+const FETCH_TIMEOUT_MS = 9000;
+const BROWSERISH_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
+
+const DOMAIN_ACCEPT_LANGUAGE = {
+  "amazon.de": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+  "amazon.fr": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+  "amazon.it": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+  "amazon.es": "es-ES,es;q=0.9,en-US;q=0.8,en;q=0.7",
+  "amazon.nl": "nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7",
+  "amazon.co.jp": "ja-JP,ja;q=0.9,en-US;q=0.7,en;q=0.6",
+  "amazon.com.br": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+  "amazon.co.uk": "en-GB,en;q=0.9",
+  "amazon.com": "en-US,en;q=0.9",
+  "amazon.ca": "en-CA,en;q=0.9,fr-CA;q=0.6",
+  "amazon.com.au": "en-AU,en;q=0.9",
+  "amazon.in": "en-IN,en;q=0.9"
+};
 
 function safeTrim(value) {
   return String(value || "").trim();
@@ -158,6 +176,39 @@ function isResolvableAmazonUrl(url) {
   return isAmazonShortUrl(url) || isAmazonUrl(url);
 }
 
+function defaultDomainForUrl(url) {
+  return isAmazonUrl(url) ? extractDomain(url) : "amazon.de";
+}
+
+function buildResolveHeaders(url) {
+  const domain = defaultDomainForUrl(url);
+  return {
+    accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "accept-language": DOMAIN_ACCEPT_LANGUAGE[domain] || "en-US,en;q=0.9",
+    "cache-control": "no-cache",
+    pragma: "no-cache",
+    "user-agent": BROWSERISH_USER_AGENT
+  };
+}
+
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, FETCH_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function extractAsinFromResponse(response) {
   const contentType = response.headers?.get
     ? String(response.headers.get("content-type") || "").toLowerCase()
@@ -178,12 +229,61 @@ async function extractAsinFromResponse(response) {
   }
 }
 
+function resolveAsinFromAmazonUrl(url, fallbackDomain = "amazon.de") {
+  const asin = extractAsin(url);
+  if (!asin || !isAmazonUrl(url)) {
+    return null;
+  }
+
+  const domain = extractDomain(url) || fallbackDomain;
+  return canonicalUrl(asin, domain);
+}
+
+async function resolveByFollowingRedirects(url) {
+  const originDomain = defaultDomainForUrl(url);
+  const response = await fetchWithTimeout(url, {
+    method: "GET",
+    redirect: "follow",
+    headers: buildResolveHeaders(url)
+  });
+  if (!response) {
+    return null;
+  }
+
+  const responseUrl = safeTrim(response.url);
+  const fromUrl = resolveAsinFromAmazonUrl(responseUrl, originDomain);
+  if (fromUrl) {
+    try {
+      await response.body?.cancel?.();
+    } catch {
+      // Ignore body cancellation failures.
+    }
+    return fromUrl;
+  }
+
+  const htmlAsin = await extractAsinFromResponse(response);
+  if (!htmlAsin) {
+    return null;
+  }
+
+  const domain = isAmazonUrl(responseUrl)
+    ? extractDomain(responseUrl)
+    : originDomain;
+  return canonicalUrl(htmlAsin, domain);
+}
+
 export async function resolveAmazonShortUrl(url, maxRedirects = 8) {
   if (!isResolvableAmazonUrl(url)) {
     return url;
   }
 
+  const followed = await resolveByFollowingRedirects(url);
+  if (followed) {
+    return followed;
+  }
+
   let current = url;
+  const originDomain = defaultDomainForUrl(url);
   const visited = new Set();
   for (let i = 0; i < maxRedirects; i += 1) {
     if (visited.has(current)) {
@@ -191,21 +291,33 @@ export async function resolveAmazonShortUrl(url, maxRedirects = 8) {
     }
     visited.add(current);
 
-    let response;
-    try {
-      response = await fetch(current, {
-        method: "GET",
-        redirect: "manual"
-      });
-    } catch {
+    const response = await fetchWithTimeout(current, {
+      method: "GET",
+      redirect: "manual",
+      headers: buildResolveHeaders(current)
+    });
+    if (!response) {
       return current;
+    }
+
+    const fromResponseUrl = resolveAsinFromAmazonUrl(
+      safeTrim(response.url),
+      originDomain
+    );
+    if (fromResponseUrl) {
+      try {
+        await response.body?.cancel?.();
+      } catch {
+        // Ignore body cancellation failures.
+      }
+      return fromResponseUrl;
     }
 
     const location = response.headers?.get ? response.headers.get("location") : null;
     if (!location || response.status < 300 || response.status > 399) {
       const htmlAsin = await extractAsinFromResponse(response);
       if (htmlAsin) {
-        const domain = isAmazonUrl(current) ? extractDomain(current) : "amazon.de";
+        const domain = isAmazonUrl(current) ? extractDomain(current) : originDomain;
         return canonicalUrl(htmlAsin, domain);
       }
       return current;
@@ -223,8 +335,9 @@ export async function resolveAmazonShortUrl(url, maxRedirects = 8) {
       return current;
     }
 
-    if (extractAsin(current)) {
-      return current;
+    const fromLocation = resolveAsinFromAmazonUrl(current, originDomain);
+    if (fromLocation) {
+      return fromLocation;
     }
 
     if (!isResolvableAmazonUrl(current)) {

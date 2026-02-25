@@ -21,7 +21,8 @@ function mockResponse({
   status = 200,
   location = null,
   contentType = null,
-  body = ''
+  body = '',
+  url = null
 } = {}) {
   const headers = new Map();
   if (location) {
@@ -33,6 +34,7 @@ function mockResponse({
 
   return {
     status,
+    url,
     headers: {
       get(name) {
         return headers.get(String(name).toLowerCase()) || null;
@@ -131,4 +133,29 @@ test('website normalizeAmazonInput resolves Amazon handoff HTML canonical fallba
     domain: 'amazon.de',
     url: 'https://www.amazon.de/dp/B0DZ5P7JD6'
   });
+});
+
+test('website normalizeAmazonInput resolves Amazon handoff via followed final URL', async () => {
+  const { normalizeAmazonInput } = await loadModule();
+  const handoffUrl =
+    'https://www.amazon.de/-/en/hz/mobile/mission/?_encoding=UTF8&p=abc123';
+  const calls = [];
+
+  const normalized = await withMockedFetch(async (url, options) => {
+    calls.push({ url, options });
+    if (url === handoffUrl && options?.redirect === 'follow') {
+      return mockResponse({
+        status: 200,
+        url: 'https://www.amazon.de/gp/aw/d/B0CF14M4PJ?ref_=abc'
+      });
+    }
+    return mockResponse();
+  }, async () => normalizeAmazonInput(handoffUrl));
+
+  assert.deepEqual(normalized, {
+    asin: 'B0CF14M4PJ',
+    domain: 'amazon.de',
+    url: 'https://www.amazon.de/dp/B0CF14M4PJ'
+  });
+  assert.equal(calls[0].options.redirect, 'follow');
 });
