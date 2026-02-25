@@ -39,5 +39,10 @@
     "playwright": "^1.58.2",
     "commander": "^13.1.0",
     "@supabase/supabase-js": "^2.49.4"
+  },
+  "devDependencies": {
+    "next": "16.1.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
   }
 }

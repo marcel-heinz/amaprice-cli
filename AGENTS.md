@@ -49,6 +49,12 @@ Website:
 - For isolated development, point to your own Supabase project (`SUPABASE_URL` + `SUPABASE_KEY`).
 - Do not hardcode secrets or service-role credentials in source files.
 
+## Website Deploy Guardrails
+
+- Vercel deploys from repo root using root `vercel.json` commands that run inside `website/` (`cd website && ...`).
+- Keep `next`, `react`, and `react-dom` present in root `package.json` `devDependencies` so Vercel framework detection does not fail when root directory is the repository root.
+- If you change this model (for example, Vercel Root Directory set to `website`), you must also update `vercel.json` install/build/dev commands accordingly.
+
 ## Coding Conventions
 
 - Match existing style: CommonJS modules in root app code (`require`, `module.exports`).
