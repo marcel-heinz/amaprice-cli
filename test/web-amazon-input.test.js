@@ -17,10 +17,18 @@ async function loadModule() {
   return import(pathToFileURL(modulePath).href);
 }
 
-function mockResponse(status, location = null) {
+function mockResponse({
+  status = 200,
+  location = null,
+  contentType = null,
+  body = ''
+} = {}) {
   const headers = new Map();
   if (location) {
     headers.set('location', location);
+  }
+  if (contentType) {
+    headers.set('content-type', contentType);
   }
 
   return {
@@ -32,7 +40,10 @@ function mockResponse(status, location = null) {
     },
     body: {
       async cancel() {}
-    }
+    },
+    async text() {
+      return body;
+    },
   };
 }
 
@@ -62,14 +73,62 @@ test('website normalizeAmazonInput resolves short URLs', async () => {
 
   const normalized = await withMockedFetch(async (url) => {
     if (url === 'https://amzn.to/example') {
-      return mockResponse(302, 'https://www.amazon.com/dp/B0GGR4QF8C?psc=1');
+      return mockResponse({
+        status: 302,
+        location: 'https://www.amazon.com/dp/B0GGR4QF8C?psc=1'
+      });
     }
-    return mockResponse(200);
+    return mockResponse();
   }, async () => normalizeAmazonInput('https://amzn.to/example'));
 
   assert.deepEqual(normalized, {
     asin: 'B0GGR4QF8C',
     domain: 'amazon.com',
     url: 'https://www.amazon.com/dp/B0GGR4QF8C'
+  });
+});
+
+test('website normalizeAmazonInput resolves Amazon handoff URL redirects', async () => {
+  const { normalizeAmazonInput } = await loadModule();
+  const handoffUrl =
+    'https://www.amazon.de/-/en/hz/mobile/mission/?_encoding=UTF8&p=abc123';
+
+  const normalized = await withMockedFetch(async (url) => {
+    if (url === handoffUrl) {
+      return mockResponse({
+        status: 302,
+        location: '/gp/aw/d/B0GGR4QF8C?ref_=something'
+      });
+    }
+    return mockResponse();
+  }, async () => normalizeAmazonInput(handoffUrl));
+
+  assert.deepEqual(normalized, {
+    asin: 'B0GGR4QF8C',
+    domain: 'amazon.de',
+    url: 'https://www.amazon.de/dp/B0GGR4QF8C'
+  });
+});
+
+test('website normalizeAmazonInput resolves Amazon handoff HTML canonical fallback', async () => {
+  const { normalizeAmazonInput } = await loadModule();
+  const handoffUrl =
+    'https://www.amazon.de/-/en/hz/mobile/mission/?_encoding=UTF8&p=abc123';
+
+  const normalized = await withMockedFetch(async (url) => {
+    if (url === handoffUrl) {
+      return mockResponse({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: '<html><head><link rel=\"canonical\" href=\"https://www.amazon.de/dp/B0DZ5P7JD6?th=1\"></head></html>'
+      });
+    }
+    return mockResponse();
+  }, async () => normalizeAmazonInput(handoffUrl));
+
+  assert.deepEqual(normalized, {
+    asin: 'B0DZ5P7JD6',
+    domain: 'amazon.de',
+    url: 'https://www.amazon.de/dp/B0DZ5P7JD6'
   });
 });
