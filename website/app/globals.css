@@ -421,35 +421,51 @@ pre {
 }
 
 .prices-hero h1 {
-  max-width: 18ch;
+  max-width: 20ch;
 }
 
 .prices-explorer {
-  margin-top: 0;
+  margin-top: 0.2rem;
 }
 
 .prices-layout {
   display: grid;
   gap: 1rem;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  align-items: start;
   min-height: 560px;
 }
 
 .catalog-pane {
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 0.9rem;
-  background: #fffefa;
+  border-radius: 16px;
+  padding: 0.92rem;
+  background: linear-gradient(180deg, #fffefb 0%, #fbf9f2 100%);
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.68rem;
+  position: sticky;
+  top: 5.2rem;
+  max-height: calc(100vh - 6.2rem);
+  min-height: 0;
+}
+
+.catalog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 0.7rem;
+}
+
+.catalog-head .label {
+  margin: 0;
 }
 
 .search-input {
   width: 100%;
-  border: 1px solid var(--line);
+  border: 1.5px solid var(--line);
   border-radius: 10px;
-  padding: 0.62rem 0.7rem;
+  padding: 0.64rem 0.74rem;
   background: #ffffff;
   color: var(--text);
   font: inherit;
@@ -463,15 +479,18 @@ pre {
 .catalog-count {
   color: var(--muted);
   font-size: 0.83rem;
+  margin: 0;
+  text-align: right;
 }
 
 .catalog-list {
   overflow: auto;
-  max-height: 480px;
   display: flex;
   flex-direction: column;
-  gap: 0.58rem;
-  padding-right: 0.15rem;
+  gap: 0.56rem;
+  padding-right: 0.1rem;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .product-item {
@@ -483,20 +502,35 @@ pre {
   padding: 0.66rem;
   display: flex;
   flex-direction: column;
-  gap: 0.34rem;
+  gap: 0.4rem;
   cursor: pointer;
   font: inherit;
   color: var(--text);
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
 .product-item:hover {
-  border-color: #9fb4ad;
-  box-shadow: 0 8px 18px rgba(24, 33, 31, 0.06);
+  border-color: #8ea89f;
+  box-shadow: 0 10px 20px rgba(24, 33, 31, 0.08);
+  transform: translateY(-1px);
+}
+
+.product-item:focus-visible {
+  outline: 2px solid rgba(18, 107, 68, 0.34);
+  outline-offset: 1px;
 }
 
 .product-item.active {
   border-color: rgba(18, 107, 68, 0.65);
-  background: #f3fef8;
+  background: #ecfbf2;
+  box-shadow: 0 12px 24px rgba(18, 107, 68, 0.13);
+}
+
+.product-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.48rem;
 }
 
 .product-item-domain {
@@ -504,6 +538,25 @@ pre {
   letter-spacing: 0.06em;
   font-size: 0.7rem;
   color: var(--primary);
+}
+
+.product-item-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.14rem 0.5rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid #9fc9b3;
+  background: #e8f8ef;
+  color: #0c4f32;
+}
+
+.product-item-title {
+  font-size: 0.95rem;
+  line-height: 1.35;
 }
 
 .product-item-meta {
@@ -514,20 +567,20 @@ pre {
   font-size: 0.81rem;
 }
 
-.product-item-cta {
-  color: var(--primary-strong);
-  font-size: 0.82rem;
-  font-weight: 500;
+.product-item-price {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .detail-pane {
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 1rem;
-  background: #fffefa;
+  border-radius: 16px;
+  padding: 1rem 1rem 0.94rem;
+  background: linear-gradient(180deg, #fffefb 0%, #ffffff 34%, #ffffff 100%);
   display: flex;
   flex-direction: column;
-  gap: 0.86rem;
+  gap: 0.95rem;
+  min-width: 0;
 }
 
 .detail-head {
@@ -535,28 +588,34 @@ pre {
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.8rem;
+  border-bottom: 1px solid rgba(24, 33, 31, 0.08);
+  padding-bottom: 0.76rem;
 }
 
 .detail-head h3 {
-  font-size: 1.35rem;
-  margin: 0.1rem 0 0.4rem;
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  margin: 0.16rem 0 0.48rem;
+  max-width: 38ch;
 }
 
 .detail-meta {
   color: var(--muted);
   font-size: 0.89rem;
+  line-height: 1.45;
 }
 
 .detail-note {
   color: var(--muted);
   font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .range-row {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.48rem;
   flex-wrap: wrap;
+  padding: 0.2rem 0 0.12rem;
 }
 
 .range-btn {
@@ -564,16 +623,26 @@ pre {
   border-radius: 999px;
   background: #ffffff;
   color: var(--text);
-  padding: 0.35rem 0.68rem;
+  padding: 0.36rem 0.74rem;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.81rem;
   cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+}
+
+.range-btn:hover {
+  border-color: #8ca39b;
 }
 
 .range-btn.active {
   background: #0f6641;
   border-color: #0f6641;
   color: #f3fff7;
+}
+
+.range-btn:focus-visible {
+  outline: 2px solid rgba(18, 107, 68, 0.3);
+  outline-offset: 1px;
 }
 
 .metric-grid {
@@ -583,14 +652,16 @@ pre {
 }
 
 .chart-wrap {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 0.8rem;
-  background: #ffffff;
+  border: 1px solid #d4ddd7;
+  border-radius: 14px;
+  padding: 0.84rem 0.72rem 0.66rem;
+  background: linear-gradient(180deg, #fcfefc 0%, #ffffff 100%);
+  overflow-x: auto;
 }
 
 .price-chart {
   width: 100%;
+  min-width: 640px;
   height: auto;
   display: block;
 }
@@ -600,47 +671,110 @@ pre {
   stroke-width: 1;
 }
 
+.chart-grid-line.x {
+  stroke-dasharray: 3 5;
+}
+
 .chart-grid-label {
-  fill: #728680;
+  fill: #60746e;
   font-size: 10.5px;
   font-family: "IBM Plex Mono", monospace;
 }
 
-.chart-area {
-  fill: url(#priceAreaGradient);
+.chart-grid-label.x {
+  dominant-baseline: hanging;
 }
 
 .chart-line {
   fill: none;
   stroke: #0e6a43;
-  stroke-width: 2.6;
+  stroke-width: 2.35;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 
-.chart-point {
-  fill: #0a5d3a;
-  stroke: #e7fff0;
-  stroke-width: 2;
+.chart-dot {
+  fill: #0e6a43;
+  opacity: 0.62;
+}
+
+.chart-focus {
+  fill: #ffffff;
+  stroke-width: 2.1;
+}
+
+.chart-focus-low {
+  stroke: #0d6b45;
+}
+
+.chart-focus-high {
+  stroke: #b23d2f;
+}
+
+.chart-focus-latest {
+  stroke: #224d9c;
 }
 
 .chart-axis {
-  margin-top: 0.3rem;
+  margin-top: 0.38rem;
   display: flex;
   justify-content: space-between;
   color: var(--muted);
   font-size: 0.82rem;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.chart-key {
+  margin-top: 0.42rem;
+  display: grid;
+  gap: 0.42rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.chart-key-item {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.chart-key-item strong {
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.chart-key-dot {
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.chart-key-dot.low {
+  background: #0d6b45;
+}
+
+.chart-key-dot.high {
+  background: #b23d2f;
+}
+
+.chart-key-dot.latest {
+  background: #224d9c;
 }
 
 .chart-empty {
-  min-height: 220px;
+  min-height: 240px;
   border: 1px dashed var(--line);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 1.2rem;
+  padding: 1.1rem;
+  background: #ffffff;
 }
 
 .worker-health {
@@ -770,14 +904,63 @@ pre {
 
   .prices-layout {
     grid-template-columns: 1fr;
+    gap: 0.86rem;
+  }
+
+  .catalog-pane {
+    position: static;
+    max-height: none;
+    order: 2;
+  }
+
+  .catalog-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .catalog-count {
+    text-align: left;
   }
 
   .catalog-list {
-    max-height: 320px;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-direction: row;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 0.3rem;
+  }
+
+  .product-item {
+    min-width: min(82vw, 320px);
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+
+  .detail-pane {
+    order: 1;
   }
 
   .detail-head {
     flex-direction: column;
+  }
+
+  .range-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.24rem;
+  }
+
+  .range-btn {
+    flex: 0 0 auto;
+  }
+
+  .price-chart {
+    min-width: 560px;
+  }
+
+  .chart-key {
+    grid-template-columns: 1fr;
   }
 
   .track-intake-row {

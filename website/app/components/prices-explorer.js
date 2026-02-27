@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   fetchProductHistory,
   fetchProducts,
@@ -18,6 +18,11 @@ const RANGE_OPTIONS = [
   { key: "1y", label: "1Y", days: 365 },
   { key: "all", label: "All", days: null }
 ];
+
+const chartDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric"
+});
 
 function shortTitle(value) {
   const text = String(value || "").trim();
@@ -59,6 +64,17 @@ function metricMax(points) {
   );
 }
 
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function formatChartDate(timestamp) {
+  if (!Number.isFinite(timestamp)) {
+    return "n/a";
+  }
+  return chartDateFormatter.format(new Date(timestamp));
+}
+
 function buildChart(points, width, height, padding) {
   if (!Array.isArray(points) || points.length === 0) {
     return null;
@@ -69,63 +85,128 @@ function buildChart(points, width, height, padding) {
   const minTs = points[0].timestamp;
   const maxTs = points[points.length - 1].timestamp;
 
-  const paddedMin = minPrice === maxPrice ? minPrice - 1 : minPrice;
-  const paddedMax = minPrice === maxPrice ? maxPrice + 1 : maxPrice;
-  const ySpan = paddedMax - paddedMin || 1;
+  const priceSpan = maxPrice - minPrice;
+  const pricePadding = priceSpan === 0 ? Math.max(minPrice * 0.015, 1) : priceSpan * 0.08;
+  const yMin = minPrice - pricePadding;
+  const yMax = maxPrice + pricePadding;
+
+  const ySpan = yMax - yMin || 1;
   const xSpan = maxTs - minTs || 1;
 
-  const x = (timestamp) =>
-    padding + ((timestamp - minTs) / xSpan) * (width - padding * 2);
-  const y = (price) =>
-    height - padding - ((price - paddedMin) / ySpan) * (height - padding * 2);
+  const xStart = padding.left;
+  const xEnd = width - padding.right;
+  const yTop = padding.top;
+  const yBottom = height - padding.bottom;
 
-  const linePath = points
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${x(point.timestamp)} ${y(point.price)}`)
+  const x = (timestamp) => xStart + ((timestamp - minTs) / xSpan) * (xEnd - xStart);
+  const y = (price) => yBottom - ((price - yMin) / ySpan) * (yBottom - yTop);
+
+  const plottedPoints = points.map((point, index) => ({
+    ...point,
+    x: x(point.timestamp),
+    y: y(point.price),
+    key: `${point.timestamp}-${point.price}-${index}`
+  }));
+
+  const firstPoint = plottedPoints[0];
+  const lastPoint = plottedPoints[plottedPoints.length - 1];
+
+  const linePath = plottedPoints
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ");
+  const areaPath = `${linePath} L ${lastPoint.x} ${yBottom} L ${firstPoint.x} ${yBottom} Z`;
 
-  const firstX = x(points[0].timestamp);
-  const lastX = x(points[points.length - 1].timestamp);
-  const bottomY = height - padding;
-  const areaPath = `${linePath} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z`;
-
-  const ticks = [0, 1, 2, 3, 4].map((step) => {
+  const yTicks = [0, 1, 2, 3, 4].map((step) => {
     const ratio = step / 4;
-    const value = paddedMin + (paddedMax - paddedMin) * ratio;
-    const yPos = y(value);
-    return { value, yPos };
+    const value = yMax - (yMax - yMin) * ratio;
+    return {
+      value,
+      yPos: y(value)
+    };
   });
 
+  const xTicks = [0, 1, 2, 3, 4].map((step) => {
+    const ratio = step / 4;
+    const timestamp = minTs + (maxTs - minTs) * ratio;
+    return {
+      timestamp,
+      xPos: x(timestamp)
+    };
+  });
+
+  const lowPoint = plottedPoints.reduce(
+    (min, point) => (point.price < min.price ? point : min),
+    plottedPoints[0]
+  );
+  const highPoint = plottedPoints.reduce(
+    (max, point) => (point.price > max.price ? point : max),
+    plottedPoints[0]
+  );
+
   return {
-    minPrice: paddedMin,
-    maxPrice: paddedMax,
     linePath,
     areaPath,
-    ticks,
-    firstX,
-    lastX,
-    lastY: y(points[points.length - 1].price)
+    yTicks,
+    xTicks,
+    plottedPoints,
+    firstPoint,
+    lastPoint,
+    lowPoint,
+    highPoint,
+    yBottom,
+    xStart,
+    xEnd
   };
 }
 
-function PriceLineChart({ points, currency }) {
+function PriceLineChart({ points, currency, rangeLabel }) {
+  const chartId = useId().replace(/:/g, "");
+
   if (!Array.isArray(points) || points.length === 0) {
     return (
       <div className="chart-empty">
-        <p>No valid price points are available yet for this range.</p>
+        <p>No tracked price points in the {rangeLabel} range yet.</p>
       </div>
     );
   }
 
-  const width = 860;
-  const height = 290;
-  const padding = 30;
+  const width = 960;
+  const height = 360;
+  const padding = {
+    top: 22,
+    right: 16,
+    bottom: 36,
+    left: 70
+  };
+
   const chart = buildChart(points, width, height, padding);
   if (!chart) {
     return null;
   }
 
-  const first = points[0];
-  const last = points[points.length - 1];
+  const gradientId = `price-area-gradient-${chartId}`;
+  const pointsCount = points.length;
+  const pointRadius =
+    pointsCount > 1200 ? 1.1 : pointsCount > 700 ? 1.35 : pointsCount > 350 ? 1.65 : 2.05;
+
+  const summaryRows = [
+    { key: "low", label: "Low", point: chart.lowPoint, tone: "low" },
+    { key: "high", label: "High", point: chart.highPoint, tone: "high" },
+    { key: "latest", label: "Latest", point: chart.lastPoint, tone: "latest" }
+  ];
+
+  const seenFocus = new Set();
+  const focusPoints = summaryRows.filter((entry) => {
+    if (!entry.point) {
+      return false;
+    }
+    const pointKey = `${entry.point.timestamp}-${entry.point.price}`;
+    if (seenFocus.has(pointKey)) {
+      return false;
+    }
+    seenFocus.add(pointKey);
+    return true;
+  });
 
   return (
     <div className="chart-wrap">
@@ -133,36 +214,92 @@ function PriceLineChart({ points, currency }) {
         className="price-chart"
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label={`Price chart with ${points.length} valid data points`}
+        aria-label={`Price chart with ${points.length} tracked data points`}
       >
         <defs>
-          <linearGradient id="priceAreaGradient" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="rgba(18, 107, 68, 0.33)" />
-            <stop offset="100%" stopColor="rgba(18, 107, 68, 0.03)" />
+          <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="rgba(18, 107, 68, 0.27)" />
+            <stop offset="100%" stopColor="rgba(18, 107, 68, 0.02)" />
           </linearGradient>
         </defs>
-        {chart.ticks.map((tick) => (
-          <g key={tick.yPos}>
+
+        {chart.yTicks.map((tick) => (
+          <g key={`y-${tick.yPos}`}>
             <line
-              x1={padding}
-              x2={width - padding}
+              x1={chart.xStart}
+              x2={chart.xEnd}
               y1={tick.yPos}
               y2={tick.yPos}
               className="chart-grid-line"
             />
-            <text x={6} y={tick.yPos + 4} className="chart-grid-label">
+            <text
+              x={padding.left - 8}
+              y={clamp(tick.yPos + 4, padding.top + 10, height - padding.bottom - 2)}
+              className="chart-grid-label"
+              textAnchor="end"
+            >
               {formatMoney(tick.value, currency)}
             </text>
           </g>
         ))}
-        <path d={chart.areaPath} className="chart-area" />
+
+        {chart.xTicks.map((tick) => (
+          <g key={`x-${tick.timestamp}`}>
+            <line
+              x1={tick.xPos}
+              x2={tick.xPos}
+              y1={padding.top}
+              y2={chart.yBottom}
+              className="chart-grid-line x"
+            />
+            <text x={tick.xPos} y={height - 10} className="chart-grid-label x" textAnchor="middle">
+              {formatChartDate(tick.timestamp)}
+            </text>
+          </g>
+        ))}
+
+        <path d={chart.areaPath} className="chart-area" fill={`url(#${gradientId})`} />
         <path d={chart.linePath} className="chart-line" />
-        <circle cx={chart.lastX} cy={chart.lastY} r="5.2" className="chart-point" />
+
+        <g className="chart-dots">
+          {chart.plottedPoints.map((point) => (
+            <circle key={point.key} cx={point.x} cy={point.y} r={pointRadius} className="chart-dot">
+              <title>
+                {`${formatDateTime(point.scrapedAt)} — ${formatMoney(point.price, point.currency || currency)}`}
+              </title>
+            </circle>
+          ))}
+        </g>
+
+        {focusPoints.map((entry) => (
+          <circle
+            key={`focus-${entry.key}`}
+            cx={entry.point.x}
+            cy={entry.point.y}
+            r={Math.max(3.8, pointRadius + 2.1)}
+            className={`chart-focus chart-focus-${entry.tone}`}
+          />
+        ))}
       </svg>
+
       <p className="chart-axis">
-        <span>{formatDateShort(first.scrapedAt)}</span>
-        <span>{formatDateShort(last.scrapedAt)}</span>
+        <span>{formatDateShort(chart.firstPoint.scrapedAt)}</span>
+        <span>{formatDateShort(chart.lastPoint.scrapedAt)}</span>
       </p>
+
+      <div className="chart-key" aria-label="Chart highlights">
+        {summaryRows.map((entry) => (
+          <p key={entry.key} className="chart-key-item">
+            <span className={`chart-key-dot ${entry.tone}`} aria-hidden="true" />
+            <strong>{entry.label}</strong>
+            <span>
+              {entry.point
+                ? `${formatMoney(entry.point.price, entry.point.currency || currency)} (${formatDateShort(entry.point.scrapedAt)})`
+                : "n/a"}
+            </span>
+          </p>
+        ))}
+      </div>
     </div>
   );
 }
@@ -310,20 +447,28 @@ export default function PricesExplorer() {
   }, [selectedProduct]);
 
   const rangeRows = useMemo(() => pointsForRange(historyRows, range), [historyRows, range]);
-  const visibleRows = rangeRows.length > 0 ? rangeRows : historyRows;
-  const latest = visibleRows.length > 0 ? visibleRows[visibleRows.length - 1] : null;
-  const low = visibleRows.length > 0 ? metricMin(visibleRows) : null;
-  const high = visibleRows.length > 0 ? metricMax(visibleRows) : null;
+  const activeRange = RANGE_OPTIONS.find((option) => option.key === range) || RANGE_OPTIONS[0];
+
+  const totalTrackedPoints = historyRows.length;
+  const visibleRows = rangeRows;
+  const hasRangeData = visibleRows.length > 0;
+
+  const latestOverall = totalTrackedPoints > 0 ? historyRows[totalTrackedPoints - 1] : null;
+  const latestInRange = hasRangeData ? visibleRows[visibleRows.length - 1] : null;
+  const low = hasRangeData ? metricMin(visibleRows) : null;
+  const high = hasRangeData ? metricMax(visibleRows) : null;
   const change = getChangeInfo(visibleRows);
-  const lastKnownPrice = latest?.price ?? numberOrNull(selectedProduct?.lastPrice);
   const changePrefix = Number.isFinite(change.change) && change.change > 0 ? "+" : "";
+
+  const displayCurrency = latestInRange?.currency || latestOverall?.currency || "USD";
+  const lastKnownPrice = latestOverall?.price ?? numberOrNull(selectedProduct?.lastPrice);
 
   return (
     <section className="panel prices-explorer" aria-live="polite">
       <div className="section-head">
         <h2>Price Explorer</h2>
         <p className="muted-text">
-          Search products, open one, and inspect valid tracked prices across time ranges.
+          Search tracked products, pick a time range, and inspect every tracked price point directly on the chart.
         </p>
       </div>
 
@@ -338,9 +483,15 @@ export default function PricesExplorer() {
       {!catalogLoading && !catalogError ? (
         <div className="prices-layout">
           <aside className="catalog-pane" aria-label="Product catalog">
-            <label className="label" htmlFor="product-search">
-              Search products
-            </label>
+            <div className="catalog-head">
+              <label className="label" htmlFor="product-search">
+                Find a tracked product
+              </label>
+              <p className="catalog-count">
+                {filteredProducts.length} matches
+                {search.trim() ? ` (${products.length} total)` : ""}
+              </p>
+            </div>
             <input
               id="product-search"
               className="search-input"
@@ -349,7 +500,6 @@ export default function PricesExplorer() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
-            <p className="catalog-count">{filteredProducts.length} products</p>
             {filteredProducts.length > 0 ? (
               <div className="catalog-list">
                 {filteredProducts.map((product) => {
@@ -364,13 +514,17 @@ export default function PricesExplorer() {
                         syncAsinUrl(product.asin);
                       }}
                     >
-                      <span className="product-item-domain">{product.domain}</span>
-                      <strong>{shortTitle(product.title)}</strong>
+                      <span className="product-item-top">
+                        <span className="product-item-domain">{product.domain}</span>
+                        {isActive ? <span className="product-item-badge">Selected</span> : null}
+                      </span>
+                      <strong className="product-item-title">{shortTitle(product.title)}</strong>
                       <span className="product-item-meta">
                         <code>{product.asin}</code>
-                        <span>{Number.isFinite(product.lastPrice) ? formatMoney(product.lastPrice) : "Open chart"}</span>
+                        <span className="product-item-price">
+                          {Number.isFinite(product.lastPrice) ? formatMoney(product.lastPrice) : "n/a"}
+                        </span>
                       </span>
-                      <span className="product-item-cta">View Price History</span>
                     </button>
                   );
                 })}
@@ -388,8 +542,7 @@ export default function PricesExplorer() {
                     <p className="kicker">Tracking {selectedProduct.domain}</p>
                     <h3 title={selectedProduct.title}>{selectedProduct.title}</h3>
                     <p className="detail-meta">
-                      ASIN: <code>{selectedProduct.asin}</code> | Last known:{" "}
-                      {formatMoney(lastKnownPrice, latest?.currency || "USD")}
+                      ASIN: <code>{selectedProduct.asin}</code> | Last known: {formatMoney(lastKnownPrice, displayCurrency)}
                     </p>
                   </div>
                   {selectedProduct.url ? (
@@ -406,53 +559,60 @@ export default function PricesExplorer() {
                       type="button"
                       className={`range-btn ${range === option.key ? "active" : ""}`}
                       onClick={() => setRange(option.key)}
+                      aria-pressed={range === option.key}
                     >
                       {option.label}
                     </button>
                   ))}
                 </div>
 
-                {historyLoading ? <p className="spotlight-note">Loading valid price history...</p> : null}
+                {historyLoading ? <p className="spotlight-note">Loading tracked price history...</p> : null}
                 {historyError ? <p className="spotlight-note health-error">{historyError}</p> : null}
 
                 {!historyLoading && !historyError ? (
                   <>
                     <div className="metric-grid">
                       <article className="metric">
-                        <span className="metric-label">Current</span>
-                        <strong>{latest ? formatMoney(latest.price, latest.currency) : "n/a"}</strong>
+                        <span className="metric-label">Current ({activeRange.label})</span>
+                        <strong>{latestInRange ? formatMoney(latestInRange.price, latestInRange.currency) : "n/a"}</strong>
                       </article>
                       <article className="metric">
-                        <span className="metric-label">Lowest</span>
+                        <span className="metric-label">Lowest ({activeRange.label})</span>
                         <strong>{low ? formatMoney(low.price, low.currency) : "n/a"}</strong>
                       </article>
                       <article className="metric">
-                        <span className="metric-label">Highest</span>
+                        <span className="metric-label">Highest ({activeRange.label})</span>
                         <strong>{high ? formatMoney(high.price, high.currency) : "n/a"}</strong>
                       </article>
                       <article className="metric">
-                        <span className="metric-label">Change</span>
+                        <span className="metric-label">Change ({activeRange.label})</span>
                         <strong>
                           {Number.isFinite(change.change)
-                            ? `${changePrefix}${formatMoney(change.change, latest?.currency)} (${changePrefix}${change.changePct.toFixed(2)}%)`
+                            ? `${changePrefix}${formatMoney(change.change, displayCurrency)} (${changePrefix}${change.changePct.toFixed(2)}%)`
                             : "n/a"}
                         </strong>
                       </article>
                     </div>
 
-                    <PriceLineChart points={visibleRows} currency={latest?.currency || "USD"} />
+                    <PriceLineChart
+                      points={visibleRows}
+                      currency={displayCurrency}
+                      rangeLabel={activeRange.label}
+                    />
 
                     <p className="detail-note">
-                      Showing {visibleRows.length} valid points.
-                      {" "}
-                      {latest ? `Latest update: ${formatDateTime(latest.scrapedAt)}.` : "Waiting for first valid scrape."}
+                      {hasRangeData
+                        ? `Showing ${visibleRows.length} of ${totalTrackedPoints} tracked points in ${activeRange.label}. Latest update in range: ${formatDateTime(latestInRange.scrapedAt)}.`
+                        : totalTrackedPoints > 0
+                          ? `No tracked points were collected in ${activeRange.label}. Switch range or choose All to inspect all ${totalTrackedPoints} tracked points.`
+                          : "Waiting for the first tracked price point."}
                     </p>
                   </>
                 ) : null}
               </>
             ) : (
               <p className="spotlight-note">
-                Select a product from the left to open its chart.
+                Select a product to inspect its tracked price history.
               </p>
             )}
           </article>
