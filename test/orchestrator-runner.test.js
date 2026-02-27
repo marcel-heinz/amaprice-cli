@@ -40,3 +40,79 @@ test('orchestrator no-price message contains diagnostics', () => {
   assert.match(message, /final_url=/);
   assert.match(message, /title=Example Product/);
 });
+
+test('orchestrator pickProductTitle prefers extracted title', () => {
+  const title = __test.pickProductTitle({
+    asin: 'B09R9BTN9Y',
+    existingTitle: 'ASIN B09R9BTN9Y',
+    extractedTitle: 'Belkin USB-C Docking Station',
+    pageTitle: 'Belkin USB-C Docking Station : Amazon.de',
+  });
+
+  assert.equal(title, 'Belkin USB-C Docking Station');
+});
+
+test('orchestrator pickProductTitle uses page title only for placeholder records', () => {
+  const fromPlaceholder = __test.pickProductTitle({
+    asin: 'B09R9BTN9Y',
+    existingTitle: 'ASIN B09R9BTN9Y',
+    extractedTitle: null,
+    pageTitle: 'Belkin USB-C Docking Station : Amazon.de: Electronics',
+  });
+  const fromExisting = __test.pickProductTitle({
+    asin: 'B09R9BTN9Y',
+    existingTitle: 'Belkin USB-C Docking Station',
+    extractedTitle: null,
+    pageTitle: 'Belkin USB-C Docking Station : Amazon.de: Electronics',
+  });
+
+  assert.equal(fromPlaceholder, 'Belkin USB-C Docking Station : Amazon.de: Electronics');
+  assert.equal(fromExisting, null);
+});
+
+test('orchestrator buildProductMetadataPatch updates canonical URL and title', () => {
+  const patch = __test.buildProductMetadataPatch({
+    job: {
+      asin: 'B09R9BTN9Y',
+      domain: 'amazon.de',
+    },
+    result: {
+      title: 'Belkin USB-C Docking Station',
+      pageTitle: 'Belkin USB-C Docking Station : Amazon.de',
+      finalUrl: 'https://www.amazon.de/gp/product/B09R9BTN9Y?th=1',
+    },
+    existingProduct: {
+      asin: 'B09R9BTN9Y',
+      title: 'ASIN B09R9BTN9Y',
+      domain: 'amazon.de',
+      url: 'https://www.amazon.de/dp/B09R9BTN9Y?psc=1',
+    },
+  });
+
+  assert.deepEqual(patch, {
+    title: 'Belkin USB-C Docking Station',
+    url: 'https://www.amazon.de/dp/B09R9BTN9Y',
+  });
+});
+
+test('orchestrator buildProductMetadataPatch avoids low-signal page titles', () => {
+  const patch = __test.buildProductMetadataPatch({
+    job: {
+      asin: 'B09R9BTN9Y',
+      domain: 'amazon.de',
+    },
+    result: {
+      title: null,
+      pageTitle: 'Amazon.de: Robot Check',
+      finalUrl: 'https://www.amazon.de/dp/B09R9BTN9Y',
+    },
+    existingProduct: {
+      asin: 'B09R9BTN9Y',
+      title: 'ASIN B09R9BTN9Y',
+      domain: 'amazon.de',
+      url: 'https://www.amazon.de/dp/B09R9BTN9Y',
+    },
+  });
+
+  assert.deepEqual(patch, {});
+});

@@ -15,7 +15,12 @@ const {
   updateProductById,
   getRecentPrices,
 } = require('../db');
-const { normalizeAmazonInput, isAmazonUrl, extractDomain } = require('../url');
+const {
+  normalizeAmazonInput,
+  isAmazonUrl,
+  extractDomain,
+  canonicalUrl,
+} = require('../url');
 const {
   normalizeTier,
   computeNextScrapeAt,
@@ -92,6 +97,140 @@ function cleanJsonObject(value) {
     return {};
   }
   return { ...value };
+}
+
+function sanitizeTitle(value, maxLen = 280) {
+  const cleaned = String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) {
+    return null;
+  }
+
+  if (cleaned.length <= maxLen) {
+    return cleaned;
+  }
+  return cleaned.slice(0, maxLen).trim();
+}
+
+function isPlaceholderTitle(title, asin = null) {
+  const value = sanitizeTitle(title);
+  if (!value) {
+    return true;
+  }
+
+  const normalized = value.toLowerCase();
+  if (normalized === 'unknown') {
+    return true;
+  }
+
+  if (/^asin\s+[a-z0-9]{10}$/i.test(value)) {
+    return true;
+  }
+
+  if (asin) {
+    const safeAsin = String(asin).trim().toUpperCase();
+    if (safeAsin && normalized === `asin ${safeAsin}`.toLowerCase()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isLowSignalTitle(title) {
+  const value = sanitizeTitle(title);
+  if (!value) {
+    return true;
+  }
+
+  const normalized = value.toLowerCase();
+  if (
+    normalized.startsWith('amazon.') ||
+    normalized.startsWith('amazon ') ||
+    normalized.includes('robot check') ||
+    normalized.includes('captcha') ||
+    normalized.includes('access denied') ||
+    normalized.includes('just a moment') ||
+    normalized.includes('service unavailable')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function pickProductTitle({
+  asin = null,
+  existingTitle = null,
+  extractedTitle = null,
+  pageTitle = null,
+}) {
+  const safeAsin = String(asin || '').trim().toUpperCase() || null;
+  const extracted = sanitizeTitle(extractedTitle);
+  if (extracted && !isLowSignalTitle(extracted) && !isPlaceholderTitle(extracted, safeAsin)) {
+    return extracted;
+  }
+
+  const existing = sanitizeTitle(existingTitle);
+  const page = sanitizeTitle(pageTitle);
+  if (
+    page &&
+    !isLowSignalTitle(page) &&
+    !isPlaceholderTitle(page, safeAsin) &&
+    isPlaceholderTitle(existing, safeAsin)
+  ) {
+    return page;
+  }
+
+  return null;
+}
+
+function buildProductMetadataPatch({
+  job,
+  result,
+  existingProduct = null,
+}) {
+  const asin = String(job?.asin || existingProduct?.asin || '')
+    .trim()
+    .toUpperCase();
+  if (!asin) {
+    return {};
+  }
+
+  const currentTitle = sanitizeTitle(existingProduct?.title);
+  const currentDomain = sanitizeTitle(existingProduct?.domain)?.toLowerCase();
+  const currentUrl = sanitizeTitle(existingProduct?.url);
+
+  let domain = String(job?.domain || currentDomain || '').trim().toLowerCase();
+  if (isAmazonUrl(result?.finalUrl || '')) {
+    domain = extractDomain(result.finalUrl);
+  }
+  if (!domain) {
+    domain = 'amazon.de';
+  }
+
+  const nextTitle = pickProductTitle({
+    asin,
+    existingTitle: currentTitle,
+    extractedTitle: result?.title,
+    pageTitle: result?.pageTitle,
+  });
+  const nextUrl = canonicalUrl(asin, domain);
+
+  const patch = {};
+  if (nextTitle && nextTitle !== currentTitle) {
+    patch.title = nextTitle;
+  }
+  if (!currentDomain || currentDomain !== domain) {
+    patch.domain = domain;
+  }
+  if (!currentUrl || currentUrl !== nextUrl) {
+    patch.url = nextUrl;
+  }
+
+  return patch;
 }
 
 async function resolvePendingWebTrackRequests({ limit = 20 } = {}) {
@@ -248,6 +387,13 @@ async function processClaimedJob(job, {
       nextTier = recommendAutoTier(history);
     }
 
+    const existingProduct = await getProductByAsin(job.asin).catch(() => null);
+    const metadataPatch = buildProductMetadataPatch({
+      job,
+      result,
+      existingProduct,
+    });
+
     const nowIso = new Date().toISOString();
     const lastPrice = Number(job.last_price);
     const hasLastPrice = Number.isFinite(lastPrice);
@@ -260,6 +406,7 @@ async function processClaimedJob(job, {
       next_scrape_at: computeNextScrapeAt(nextTier),
       consecutive_failures: 0,
       last_error: null,
+      ...metadataPatch,
     };
     if (didPriceChange) {
       patch.last_price_change_at = nowIso;
@@ -441,4 +588,9 @@ module.exports.__test = {
   buildNoPriceErrorMessage,
   nextJobStateAfterFailure,
   cleanJsonObject,
+  sanitizeTitle,
+  isPlaceholderTitle,
+  isLowSignalTitle,
+  pickProductTitle,
+  buildProductMetadataPatch,
 };
