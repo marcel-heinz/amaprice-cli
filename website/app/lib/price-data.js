@@ -100,6 +100,55 @@ export async function fetchProducts({ limit = 400 } = {}) {
     .filter((row) => row.id && row.asin && Number.isFinite(row.lastPrice));
 }
 
+function normalizePagedProductsPayload(payload, fallbackLimit) {
+  const items = (Array.isArray(payload?.items) ? payload.items : [])
+    .map(normalizeProduct)
+    .filter((row) => row.id && row.asin);
+
+  const parsedLimit = Number(payload?.limit);
+  const parsedOffset = Number(payload?.offset);
+  const parsedNextOffset = Number(payload?.nextOffset);
+
+  return {
+    items,
+    hasMore: Boolean(payload?.hasMore),
+    limit: Number.isFinite(parsedLimit) ? parsedLimit : fallbackLimit,
+    offset: Number.isFinite(parsedOffset) ? parsedOffset : 0,
+    nextOffset: Number.isFinite(parsedNextOffset) ? parsedNextOffset : null
+  };
+}
+
+export async function fetchProductsPage({
+  search = "",
+  limit = 24,
+  offset = 0,
+  asin = ""
+} = {}) {
+  const payload = await fetchJson("/api/v1/products", {
+    paginate: 1,
+    q: search,
+    limit,
+    offset,
+    asin
+  });
+
+  return normalizePagedProductsPayload(payload, limit);
+}
+
+export async function fetchProductByAsin(asin) {
+  const normalizedAsin = String(asin || "").trim().toUpperCase();
+  if (!normalizedAsin) {
+    return null;
+  }
+
+  const page = await fetchProductsPage({
+    asin: normalizedAsin,
+    limit: 1,
+    offset: 0
+  });
+  return page.items[0] || null;
+}
+
 export async function fetchProductHistory(productId, { limit = 1500 } = {}) {
   const rows = await fetchJson(`/api/v1/products/${encodeURIComponent(productId)}/history`, {
     limit

@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
+  fetchProductByAsin,
   fetchProductHistory,
-  fetchProducts,
+  fetchProductsPage,
   formatDateShort,
   formatDateTime,
   formatMoney,
@@ -19,8 +20,8 @@ const RANGE_OPTIONS = [
   { key: "all", label: "All", days: null }
 ];
 
-const INITIAL_VISIBLE_PRODUCTS = 24;
-const PRODUCT_PAGE_SIZE = 24;
+const CATALOG_PAGE_SIZE = 24;
+const SEARCH_DEBOUNCE_MS = 260;
 const CHART_X_TICK_RATIOS = [0, 0.5, 1];
 
 const chartDateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -77,6 +78,20 @@ function formatChartDate(timestamp) {
     return "n/a";
   }
   return chartDateFormatter.format(new Date(timestamp));
+}
+
+function useDebouncedValue(value, delayMs) {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebounced(value);
+    }, delayMs);
+
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+
+  return debounced;
 }
 
 function buildTimelineChart(points, width, height, padding) {
@@ -335,16 +350,23 @@ function RecentPointsFeed({ points, fallbackCurrency }) {
 }
 
 export default function PricesExplorer() {
-  const [products, setProducts] = useState([]);
+  const [catalogRows, setCatalogRows] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogLoadingMore, setCatalogLoadingMore] = useState(false);
+  const [catalogHasMore, setCatalogHasMore] = useState(false);
+  const [catalogOffset, setCatalogOffset] = useState(0);
   const [catalogError, setCatalogError] = useState(null);
   const [search, setSearch] = useState("");
+
   const [selectedAsin, setSelectedAsin] = useState("");
+  const [selectedProductCache, setSelectedProductCache] = useState(null);
+
   const [historyRows, setHistoryRows] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(null);
   const [range, setRange] = useState("90d");
-  const [visibleProductCount, setVisibleProductCount] = useState(INITIAL_VISIBLE_PRODUCTS);
+
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 
   const syncAsinUrl = useCallback((asin, { replace = false } = {}) => {
     if (typeof window === "undefined") {
@@ -382,20 +404,31 @@ export default function PricesExplorer() {
   useEffect(() => {
     let active = true;
 
-    async function loadCatalog() {
+    async function loadFirstCatalogPage() {
       if (!hasSupabaseConfig()) {
         setCatalogError("Website API is not configured.");
         setCatalogLoading(false);
         return;
       }
 
+      setCatalogLoading(true);
+      setCatalogError(null);
       try {
-        const rows = await fetchProducts({ limit: 450 });
+        const page = await fetchProductsPage({
+          search: debouncedSearch,
+          limit: CATALOG_PAGE_SIZE,
+          offset: 0
+        });
         if (!active) return;
-        setProducts(rows);
-        setCatalogError(null);
+
+        setCatalogRows(page.items);
+        setCatalogHasMore(page.hasMore);
+        setCatalogOffset(page.items.length);
       } catch (error) {
         if (!active) return;
+        setCatalogRows([]);
+        setCatalogHasMore(false);
+        setCatalogOffset(0);
         setCatalogError(String(error?.message || "Could not load product catalog."));
       } finally {
         if (active) {
@@ -404,58 +437,106 @@ export default function PricesExplorer() {
       }
     }
 
-    loadCatalog();
+    loadFirstCatalogPage();
     return () => {
       active = false;
     };
-  }, []);
+  }, [debouncedSearch]);
 
   useEffect(() => {
-    if (!products.length) {
-      return;
+    if (!selectedAsin && catalogRows.length > 0) {
+      const first = catalogRows[0];
+      setSelectedAsin(first.asin);
+      setSelectedProductCache(first);
+      syncAsinUrl(first.asin, { replace: true });
     }
-    const hasSelected = selectedAsin && products.some((product) => product.asin === selectedAsin);
-    if (hasSelected) {
-      return;
-    }
-    const first = products[0];
-    if (!first?.asin) {
-      return;
-    }
-    setSelectedAsin(first.asin);
-    syncAsinUrl(first.asin, { replace: true });
-  }, [products, selectedAsin, syncAsinUrl]);
-
-  const filteredProducts = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) {
-      return products;
-    }
-    return products.filter((product) =>
-      [product.title, product.asin, product.domain].some((entry) =>
-        String(entry || "").toLowerCase().includes(term)
-      )
-    );
-  }, [products, search]);
+  }, [catalogRows, selectedAsin, syncAsinUrl]);
 
   useEffect(() => {
-    setVisibleProductCount(INITIAL_VISIBLE_PRODUCTS);
-  }, [search]);
+    if (!selectedAsin) {
+      setSelectedProductCache(null);
+      return;
+    }
 
-  const visibleProducts = useMemo(
-    () => filteredProducts.slice(0, visibleProductCount),
-    [filteredProducts, visibleProductCount]
-  );
-  const hasMoreProducts = filteredProducts.length > visibleProducts.length;
+    const fromCatalog = catalogRows.find((row) => row.asin === selectedAsin);
+    if (fromCatalog) {
+      setSelectedProductCache(fromCatalog);
+      return;
+    }
 
-  const selectedProduct = useMemo(
-    () => products.find((row) => row.asin === selectedAsin) || null,
-    [products, selectedAsin]
-  );
+    let active = true;
+    async function loadSelectedProduct() {
+      try {
+        const product = await fetchProductByAsin(selectedAsin);
+        if (!active) return;
+        if (product) {
+          setSelectedProductCache(product);
+          return;
+        }
 
-  const pickerValue = useMemo(() => {
-    return filteredProducts.some((product) => product.asin === selectedAsin) ? selectedAsin : "";
-  }, [filteredProducts, selectedAsin]);
+        if (catalogRows.length > 0) {
+          const fallback = catalogRows[0];
+          setSelectedAsin(fallback.asin);
+          setSelectedProductCache(fallback);
+          syncAsinUrl(fallback.asin, { replace: true });
+        }
+      } catch {
+        if (!active) return;
+      }
+    }
+
+    loadSelectedProduct();
+    return () => {
+      active = false;
+    };
+  }, [selectedAsin, catalogRows, syncAsinUrl]);
+
+  const selectedProduct = useMemo(() => {
+    const fromCatalog = catalogRows.find((row) => row.asin === selectedAsin);
+    if (fromCatalog) {
+      return fromCatalog;
+    }
+    if (selectedProductCache?.asin === selectedAsin) {
+      return selectedProductCache;
+    }
+    return null;
+  }, [catalogRows, selectedAsin, selectedProductCache]);
+
+  const loadMoreProducts = useCallback(async () => {
+    if (catalogLoadingMore || !catalogHasMore) {
+      return;
+    }
+
+    setCatalogLoadingMore(true);
+    setCatalogError(null);
+
+    try {
+      const page = await fetchProductsPage({
+        search: debouncedSearch,
+        limit: CATALOG_PAGE_SIZE,
+        offset: catalogOffset
+      });
+
+      setCatalogRows((current) => {
+        const seenIds = new Set(current.map((row) => row.id));
+        const merged = [...current];
+        for (const row of page.items) {
+          if (!seenIds.has(row.id)) {
+            seenIds.add(row.id);
+            merged.push(row);
+          }
+        }
+        return merged;
+      });
+
+      setCatalogHasMore(page.hasMore);
+      setCatalogOffset((current) => current + page.items.length);
+    } catch (error) {
+      setCatalogError(String(error?.message || "Could not load more products."));
+    } finally {
+      setCatalogLoadingMore(false);
+    }
+  }, [catalogLoadingMore, catalogHasMore, debouncedSearch, catalogOffset]);
 
   useEffect(() => {
     let active = true;
@@ -514,7 +595,7 @@ export default function PricesExplorer() {
       <div className="section-head">
         <h2>Price Explorer</h2>
         <p className="muted-text">
-          Mobile-first search and selection with every tracked price point plotted in the active range.
+          Server-side search and pagination for large catalogs, with every tracked price point plotted in the active range.
         </p>
       </div>
 
@@ -526,184 +607,157 @@ export default function PricesExplorer() {
         </p>
       ) : null}
 
-      {!catalogLoading && !catalogError ? (
-        <>
-          <div className="explorer-toolbar">
-            <div className="catalog-head">
-              <label className="label" htmlFor="product-search">
-                Search tracked products
-              </label>
-              <p className="catalog-count">
-                {filteredProducts.length} matches
-                {search.trim() ? ` (${products.length} total)` : ""}
-              </p>
-            </div>
-            <input
-              id="product-search"
-              className="search-input"
-              type="search"
-              placeholder="Search title, ASIN, domain..."
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-            <div className="quick-pick-wrap">
-              <label className="label" htmlFor="product-picker">
-                Quick pick
-              </label>
-              <select
-                id="product-picker"
-                className="product-picker"
-                value={pickerValue}
-                onChange={(event) => {
-                  const nextAsin = String(event.target.value || "");
-                  if (!nextAsin) {
-                    return;
-                  }
-                  setSelectedAsin(nextAsin);
-                  syncAsinUrl(nextAsin);
-                }}
-              >
-                <option value="" disabled>
-                  {filteredProducts.length > 0 ? "Choose a product" : "No matching products"}
-                </option>
-                {filteredProducts.map((product) => (
-                  <option key={product.id} value={product.asin}>
-                    {`${product.asin} · ${shortTitle(product.title)}`}
-                  </option>
-                ))}
-              </select>
-            </div>
+      <>
+        <div className="explorer-toolbar">
+          <div className="catalog-head">
+            <label className="label" htmlFor="product-search">
+              Search tracked products
+            </label>
+            <p className="catalog-count">
+              {catalogRows.length}
+              {catalogHasMore ? "+" : ""} loaded
+            </p>
           </div>
+          <input
+            id="product-search"
+            className="search-input"
+            type="search"
+            placeholder="Search title, ASIN, domain..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
 
-          {filteredProducts.length > 0 ? (
-            <div className="catalog-shell" aria-label="Product catalog">
-              <div className="catalog-grid">
-                {visibleProducts.map((product) => {
-                  const isActive = selectedAsin === product.asin;
-                  return (
-                    <button
-                      key={product.id}
-                      className={`product-card ${isActive ? "active" : ""}`}
-                      type="button"
-                      onClick={() => {
-                        setSelectedAsin(product.asin);
-                        syncAsinUrl(product.asin);
-                      }}
-                    >
-                      <span className="product-card-top">
-                        <span className="product-card-domain">{product.domain}</span>
-                        <span className="product-card-price">
-                          {Number.isFinite(product.lastPrice) ? formatMoney(product.lastPrice) : "n/a"}
-                        </span>
+        {catalogRows.length > 0 ? (
+          <div className="catalog-shell" aria-label="Product catalog">
+            <div className="catalog-grid">
+              {catalogRows.map((product) => {
+                const isActive = selectedAsin === product.asin;
+                return (
+                  <button
+                    key={product.id}
+                    className={`product-card ${isActive ? "active" : ""}`}
+                    type="button"
+                    onClick={() => {
+                      setSelectedAsin(product.asin);
+                      setSelectedProductCache(product);
+                      syncAsinUrl(product.asin);
+                    }}
+                  >
+                    <span className="product-card-top">
+                      <span className="product-card-domain">{product.domain}</span>
+                      <span className="product-card-price">
+                        {Number.isFinite(product.lastPrice) ? formatMoney(product.lastPrice) : "n/a"}
                       </span>
-                      <strong className="product-card-title">{shortTitle(product.title)}</strong>
-                      <span className="product-card-meta">
-                        <code>{product.asin}</code>
-                        {isActive ? <span>Selected</span> : <span>Open</span>}
-                      </span>
-                    </button>
-                  );
-                })}
+                    </span>
+                    <strong className="product-card-title">{shortTitle(product.title)}</strong>
+                    <span className="product-card-meta">
+                      <code>{product.asin}</code>
+                      {isActive ? <span>Selected</span> : <span>Open</span>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {catalogHasMore ? (
+              <button
+                type="button"
+                className="catalog-more"
+                onClick={loadMoreProducts}
+                disabled={catalogLoadingMore}
+              >
+                {catalogLoadingMore ? "Loading..." : "Show More Results"}
+              </button>
+            ) : null}
+          </div>
+        ) : !catalogLoading ? (
+          <p className="spotlight-note">No products matched your search.</p>
+        ) : null}
+
+        <article className="detail-pane detail-workspace">
+          {selectedProduct ? (
+            <>
+              <div className="detail-head">
+                <div>
+                  <p className="kicker">Tracking {selectedProduct.domain}</p>
+                  <h3 title={selectedProduct.title}>{selectedProduct.title}</h3>
+                  <p className="detail-meta">
+                    ASIN: <code>{selectedProduct.asin}</code> | Last known: {formatMoney(lastKnownPrice, displayCurrency)}
+                  </p>
+                </div>
+                {selectedProduct.url ? (
+                  <a className="btn btn-ghost btn-small" href={selectedProduct.url} target="_blank" rel="noreferrer">
+                    Open Product
+                  </a>
+                ) : null}
               </div>
 
-              {hasMoreProducts ? (
-                <button
-                  type="button"
-                  className="catalog-more"
-                  onClick={() => setVisibleProductCount((count) => count + PRODUCT_PAGE_SIZE)}
-                >
-                  Show {Math.min(PRODUCT_PAGE_SIZE, filteredProducts.length - visibleProducts.length)} More Products
-                </button>
-              ) : null}
-            </div>
-          ) : (
-            <p className="spotlight-note">No products matched your search.</p>
-          )}
+              <div className="range-row" role="tablist" aria-label="Price range">
+                {RANGE_OPTIONS.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    className={`range-btn ${range === option.key ? "active" : ""}`}
+                    onClick={() => setRange(option.key)}
+                    aria-pressed={range === option.key}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
 
-          <article className="detail-pane detail-workspace">
-            {selectedProduct ? (
-              <>
-                <div className="detail-head">
-                  <div>
-                    <p className="kicker">Tracking {selectedProduct.domain}</p>
-                    <h3 title={selectedProduct.title}>{selectedProduct.title}</h3>
-                    <p className="detail-meta">
-                      ASIN: <code>{selectedProduct.asin}</code> | Last known: {formatMoney(lastKnownPrice, displayCurrency)}
-                    </p>
+              {historyLoading ? <p className="spotlight-note">Loading tracked price history...</p> : null}
+              {historyError ? <p className="spotlight-note health-error">{historyError}</p> : null}
+
+              {!historyLoading && !historyError ? (
+                <>
+                  <div className="metric-grid">
+                    <article className="metric">
+                      <span className="metric-label">Current ({activeRange.label})</span>
+                      <strong>{latestInRange ? formatMoney(latestInRange.price, latestInRange.currency) : "n/a"}</strong>
+                    </article>
+                    <article className="metric">
+                      <span className="metric-label">Lowest ({activeRange.label})</span>
+                      <strong>{low ? formatMoney(low.price, low.currency) : "n/a"}</strong>
+                    </article>
+                    <article className="metric">
+                      <span className="metric-label">Highest ({activeRange.label})</span>
+                      <strong>{high ? formatMoney(high.price, high.currency) : "n/a"}</strong>
+                    </article>
+                    <article className="metric">
+                      <span className="metric-label">Change ({activeRange.label})</span>
+                      <strong>
+                        {Number.isFinite(change.change)
+                          ? `${changePrefix}${formatMoney(change.change, displayCurrency)} (${changePrefix}${change.changePct.toFixed(2)}%)`
+                          : "n/a"}
+                      </strong>
+                    </article>
                   </div>
-                  {selectedProduct.url ? (
-                    <a className="btn btn-ghost btn-small" href={selectedProduct.url} target="_blank" rel="noreferrer">
-                      Open Product
-                    </a>
-                  ) : null}
-                </div>
 
-                <div className="range-row" role="tablist" aria-label="Price range">
-                  {RANGE_OPTIONS.map((option) => (
-                    <button
-                      key={option.key}
-                      type="button"
-                      className={`range-btn ${range === option.key ? "active" : ""}`}
-                      onClick={() => setRange(option.key)}
-                      aria-pressed={range === option.key}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
+                  <PriceTimelineChart
+                    points={visibleRows}
+                    currency={displayCurrency}
+                    rangeLabel={activeRange.label}
+                  />
 
-                {historyLoading ? <p className="spotlight-note">Loading tracked price history...</p> : null}
-                {historyError ? <p className="spotlight-note health-error">{historyError}</p> : null}
+                  <p className="detail-note">
+                    {hasRangeData
+                      ? `Showing ${visibleRows.length} of ${totalTrackedPoints} tracked points in ${activeRange.label}. Latest update in range: ${formatDateTime(latestInRange.scrapedAt)}.`
+                      : totalTrackedPoints > 0
+                        ? `No tracked points were collected in ${activeRange.label}. Switch range or choose All to inspect all ${totalTrackedPoints} tracked points.`
+                        : "Waiting for the first tracked price point."}
+                  </p>
 
-                {!historyLoading && !historyError ? (
-                  <>
-                    <div className="metric-grid">
-                      <article className="metric">
-                        <span className="metric-label">Current ({activeRange.label})</span>
-                        <strong>{latestInRange ? formatMoney(latestInRange.price, latestInRange.currency) : "n/a"}</strong>
-                      </article>
-                      <article className="metric">
-                        <span className="metric-label">Lowest ({activeRange.label})</span>
-                        <strong>{low ? formatMoney(low.price, low.currency) : "n/a"}</strong>
-                      </article>
-                      <article className="metric">
-                        <span className="metric-label">Highest ({activeRange.label})</span>
-                        <strong>{high ? formatMoney(high.price, high.currency) : "n/a"}</strong>
-                      </article>
-                      <article className="metric">
-                        <span className="metric-label">Change ({activeRange.label})</span>
-                        <strong>
-                          {Number.isFinite(change.change)
-                            ? `${changePrefix}${formatMoney(change.change, displayCurrency)} (${changePrefix}${change.changePct.toFixed(2)}%)`
-                            : "n/a"}
-                        </strong>
-                      </article>
-                    </div>
-
-                    <PriceTimelineChart
-                      points={visibleRows}
-                      currency={displayCurrency}
-                      rangeLabel={activeRange.label}
-                    />
-
-                    <p className="detail-note">
-                      {hasRangeData
-                        ? `Showing ${visibleRows.length} of ${totalTrackedPoints} tracked points in ${activeRange.label}. Latest update in range: ${formatDateTime(latestInRange.scrapedAt)}.`
-                        : totalTrackedPoints > 0
-                          ? `No tracked points were collected in ${activeRange.label}. Switch range or choose All to inspect all ${totalTrackedPoints} tracked points.`
-                          : "Waiting for the first tracked price point."}
-                    </p>
-
-                    <RecentPointsFeed points={feedRows} fallbackCurrency={displayCurrency} />
-                  </>
-                ) : null}
-              </>
-            ) : (
-              <p className="spotlight-note">Select a product to inspect its tracked price history.</p>
-            )}
-          </article>
-        </>
-      ) : null}
+                  <RecentPointsFeed points={feedRows} fallbackCurrency={displayCurrency} />
+                </>
+              ) : null}
+            </>
+          ) : (
+            <p className="spotlight-note">Select a product to inspect its tracked price history.</p>
+          )}
+        </article>
+      </>
     </section>
   );
 }
