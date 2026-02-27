@@ -19,6 +19,10 @@ const RANGE_OPTIONS = [
   { key: "all", label: "All", days: null }
 ];
 
+const INITIAL_VISIBLE_PRODUCTS = 24;
+const PRODUCT_PAGE_SIZE = 24;
+const CHART_X_TICK_RATIOS = [0, 0.5, 1];
+
 const chartDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric"
@@ -75,7 +79,7 @@ function formatChartDate(timestamp) {
   return chartDateFormatter.format(new Date(timestamp));
 }
 
-function buildChart(points, width, height, padding) {
+function buildTimelineChart(points, width, height, padding) {
   if (!Array.isArray(points) || points.length === 0) {
     return null;
   }
@@ -108,13 +112,9 @@ function buildChart(points, width, height, padding) {
     key: `${point.timestamp}-${point.price}-${index}`
   }));
 
-  const firstPoint = plottedPoints[0];
-  const lastPoint = plottedPoints[plottedPoints.length - 1];
-
   const linePath = plottedPoints
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ");
-  const areaPath = `${linePath} L ${lastPoint.x} ${yBottom} L ${firstPoint.x} ${yBottom} Z`;
 
   const yTicks = [0, 1, 2, 3, 4].map((step) => {
     const ratio = step / 4;
@@ -125,8 +125,7 @@ function buildChart(points, width, height, padding) {
     };
   });
 
-  const xTicks = [0, 1, 2, 3, 4].map((step) => {
-    const ratio = step / 4;
+  const xTicks = CHART_X_TICK_RATIOS.map((ratio) => {
     const timestamp = minTs + (maxTs - minTs) * ratio;
     return {
       timestamp,
@@ -142,24 +141,24 @@ function buildChart(points, width, height, padding) {
     (max, point) => (point.price > max.price ? point : max),
     plottedPoints[0]
   );
+  const latestPoint = plottedPoints[plottedPoints.length - 1];
 
   return {
     linePath,
-    areaPath,
     yTicks,
     xTicks,
     plottedPoints,
-    firstPoint,
-    lastPoint,
     lowPoint,
     highPoint,
-    yBottom,
+    latestPoint,
     xStart,
-    xEnd
+    xEnd,
+    yTop,
+    yBottom
   };
 }
 
-function PriceLineChart({ points, currency, rangeLabel }) {
+function PriceTimelineChart({ points, currency, rangeLabel }) {
   const chartId = useId().replace(/:/g, "");
 
   if (!Array.isArray(points) || points.length === 0) {
@@ -171,28 +170,27 @@ function PriceLineChart({ points, currency, rangeLabel }) {
   }
 
   const width = 960;
-  const height = 360;
+  const height = 336;
   const padding = {
-    top: 22,
-    right: 16,
-    bottom: 36,
-    left: 70
+    top: 20,
+    right: 14,
+    bottom: 34,
+    left: 68
   };
 
-  const chart = buildChart(points, width, height, padding);
+  const chart = buildTimelineChart(points, width, height, padding);
   if (!chart) {
     return null;
   }
 
-  const gradientId = `price-area-gradient-${chartId}`;
   const pointsCount = points.length;
   const pointRadius =
-    pointsCount > 1200 ? 1.1 : pointsCount > 700 ? 1.35 : pointsCount > 350 ? 1.65 : 2.05;
+    pointsCount > 1500 ? 1.05 : pointsCount > 900 ? 1.2 : pointsCount > 500 ? 1.45 : 1.85;
 
   const summaryRows = [
     { key: "low", label: "Low", point: chart.lowPoint, tone: "low" },
     { key: "high", label: "High", point: chart.highPoint, tone: "high" },
-    { key: "latest", label: "Latest", point: chart.lastPoint, tone: "latest" }
+    { key: "latest", label: "Latest", point: chart.latestPoint, tone: "latest" }
   ];
 
   const seenFocus = new Set();
@@ -208,6 +206,8 @@ function PriceLineChart({ points, currency, rangeLabel }) {
     return true;
   });
 
+  const baselineY = chart.yBottom;
+
   return (
     <div className="chart-wrap">
       <svg
@@ -217,10 +217,14 @@ function PriceLineChart({ points, currency, rangeLabel }) {
         aria-label={`Price chart with ${points.length} tracked data points`}
       >
         <defs>
-          <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="rgba(18, 107, 68, 0.27)" />
-            <stop offset="100%" stopColor="rgba(18, 107, 68, 0.02)" />
-          </linearGradient>
+          <clipPath id={`plot-clip-${chartId}`}>
+            <rect
+              x={chart.xStart}
+              y={chart.yTop}
+              width={chart.xEnd - chart.xStart}
+              height={chart.yBottom - chart.yTop}
+            />
+          </clipPath>
         </defs>
 
         {chart.yTicks.map((tick) => (
@@ -235,7 +239,7 @@ function PriceLineChart({ points, currency, rangeLabel }) {
             <text
               x={padding.left - 8}
               y={clamp(tick.yPos + 4, padding.top + 10, height - padding.bottom - 2)}
-              className="chart-grid-label"
+              className="chart-price-label"
               textAnchor="end"
             >
               {formatMoney(tick.value, currency)}
@@ -248,20 +252,26 @@ function PriceLineChart({ points, currency, rangeLabel }) {
             <line
               x1={tick.xPos}
               x2={tick.xPos}
-              y1={padding.top}
+              y1={chart.yTop}
               y2={chart.yBottom}
               className="chart-grid-line x"
             />
-            <text x={tick.xPos} y={height - 10} className="chart-grid-label x" textAnchor="middle">
+            <text x={tick.xPos} y={height - 8} className="chart-axis-label" textAnchor="middle">
               {formatChartDate(tick.timestamp)}
             </text>
           </g>
         ))}
 
-        <path d={chart.areaPath} className="chart-area" fill={`url(#${gradientId})`} />
-        <path d={chart.linePath} className="chart-line" />
+        <line
+          x1={chart.xStart}
+          x2={chart.xEnd}
+          y1={baselineY}
+          y2={baselineY}
+          className="chart-baseline"
+        />
 
-        <g className="chart-dots">
+        <g clipPath={`url(#plot-clip-${chartId})`}>
+          <path d={chart.linePath} className="chart-line" />
           {chart.plottedPoints.map((point) => (
             <circle key={point.key} cx={point.x} cy={point.y} r={pointRadius} className="chart-dot">
               <title>
@@ -276,21 +286,16 @@ function PriceLineChart({ points, currency, rangeLabel }) {
             key={`focus-${entry.key}`}
             cx={entry.point.x}
             cy={entry.point.y}
-            r={Math.max(3.8, pointRadius + 2.1)}
+            r={Math.max(3.8, pointRadius + 2.2)}
             className={`chart-focus chart-focus-${entry.tone}`}
           />
         ))}
       </svg>
 
-      <p className="chart-axis">
-        <span>{formatDateShort(chart.firstPoint.scrapedAt)}</span>
-        <span>{formatDateShort(chart.lastPoint.scrapedAt)}</span>
-      </p>
-
-      <div className="chart-key" aria-label="Chart highlights">
+      <div className="chart-legend" aria-label="Chart highlights">
         {summaryRows.map((entry) => (
-          <p key={entry.key} className="chart-key-item">
-            <span className={`chart-key-dot ${entry.tone}`} aria-hidden="true" />
+          <p key={entry.key} className="chart-legend-item">
+            <span className={`chart-legend-dot ${entry.tone}`} aria-hidden="true" />
             <strong>{entry.label}</strong>
             <span>
               {entry.point
@@ -304,6 +309,31 @@ function PriceLineChart({ points, currency, rangeLabel }) {
   );
 }
 
+function RecentPointsFeed({ points, fallbackCurrency }) {
+  const rows = [...(Array.isArray(points) ? points : [])].slice(-14).reverse();
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="points-feed-wrap" aria-label="Latest tracked points">
+      <div className="points-feed-head">
+        <strong>Latest Tracked Points</strong>
+        <span>{rows.length} shown</span>
+      </div>
+      <ul className="points-feed">
+        {rows.map((row, index) => (
+          <li key={`${row.timestamp}-${row.price}-${index}`} className="point-row">
+            <strong>{formatMoney(row.price, row.currency || fallbackCurrency)}</strong>
+            <span>{formatDateTime(row.scrapedAt)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default function PricesExplorer() {
   const [products, setProducts] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -314,6 +344,7 @@ export default function PricesExplorer() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(null);
   const [range, setRange] = useState("90d");
+  const [visibleProductCount, setVisibleProductCount] = useState(INITIAL_VISIBLE_PRODUCTS);
 
   const syncAsinUrl = useCallback((asin, { replace = false } = {}) => {
     if (typeof window === "undefined") {
@@ -407,10 +438,24 @@ export default function PricesExplorer() {
     );
   }, [products, search]);
 
+  useEffect(() => {
+    setVisibleProductCount(INITIAL_VISIBLE_PRODUCTS);
+  }, [search]);
+
+  const visibleProducts = useMemo(
+    () => filteredProducts.slice(0, visibleProductCount),
+    [filteredProducts, visibleProductCount]
+  );
+  const hasMoreProducts = filteredProducts.length > visibleProducts.length;
+
   const selectedProduct = useMemo(
     () => products.find((row) => row.asin === selectedAsin) || null,
     [products, selectedAsin]
   );
+
+  const pickerValue = useMemo(() => {
+    return filteredProducts.some((product) => product.asin === selectedAsin) ? selectedAsin : "";
+  }, [filteredProducts, selectedAsin]);
 
   useEffect(() => {
     let active = true;
@@ -462,13 +507,14 @@ export default function PricesExplorer() {
 
   const displayCurrency = latestInRange?.currency || latestOverall?.currency || "USD";
   const lastKnownPrice = latestOverall?.price ?? numberOrNull(selectedProduct?.lastPrice);
+  const feedRows = hasRangeData ? visibleRows : historyRows;
 
   return (
     <section className="panel prices-explorer" aria-live="polite">
       <div className="section-head">
         <h2>Price Explorer</h2>
         <p className="muted-text">
-          Search tracked products, pick a time range, and inspect every tracked price point directly on the chart.
+          Mobile-first search and selection with every tracked price point plotted in the active range.
         </p>
       </div>
 
@@ -481,11 +527,11 @@ export default function PricesExplorer() {
       ) : null}
 
       {!catalogLoading && !catalogError ? (
-        <div className="prices-layout">
-          <aside className="catalog-pane" aria-label="Product catalog">
+        <>
+          <div className="explorer-toolbar">
             <div className="catalog-head">
               <label className="label" htmlFor="product-search">
-                Find a tracked product
+                Search tracked products
               </label>
               <p className="catalog-count">
                 {filteredProducts.length} matches
@@ -496,45 +542,85 @@ export default function PricesExplorer() {
               id="product-search"
               className="search-input"
               type="search"
-              placeholder="Search by title, ASIN, domain..."
+              placeholder="Search title, ASIN, domain..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
-            {filteredProducts.length > 0 ? (
-              <div className="catalog-list">
-                {filteredProducts.map((product) => {
+            <div className="quick-pick-wrap">
+              <label className="label" htmlFor="product-picker">
+                Quick pick
+              </label>
+              <select
+                id="product-picker"
+                className="product-picker"
+                value={pickerValue}
+                onChange={(event) => {
+                  const nextAsin = String(event.target.value || "");
+                  if (!nextAsin) {
+                    return;
+                  }
+                  setSelectedAsin(nextAsin);
+                  syncAsinUrl(nextAsin);
+                }}
+              >
+                <option value="" disabled>
+                  {filteredProducts.length > 0 ? "Choose a product" : "No matching products"}
+                </option>
+                {filteredProducts.map((product) => (
+                  <option key={product.id} value={product.asin}>
+                    {`${product.asin} · ${shortTitle(product.title)}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {filteredProducts.length > 0 ? (
+            <div className="catalog-shell" aria-label="Product catalog">
+              <div className="catalog-grid">
+                {visibleProducts.map((product) => {
                   const isActive = selectedAsin === product.asin;
                   return (
                     <button
                       key={product.id}
-                      className={`product-item ${isActive ? "active" : ""}`}
+                      className={`product-card ${isActive ? "active" : ""}`}
                       type="button"
                       onClick={() => {
                         setSelectedAsin(product.asin);
                         syncAsinUrl(product.asin);
                       }}
                     >
-                      <span className="product-item-top">
-                        <span className="product-item-domain">{product.domain}</span>
-                        {isActive ? <span className="product-item-badge">Selected</span> : null}
-                      </span>
-                      <strong className="product-item-title">{shortTitle(product.title)}</strong>
-                      <span className="product-item-meta">
-                        <code>{product.asin}</code>
-                        <span className="product-item-price">
+                      <span className="product-card-top">
+                        <span className="product-card-domain">{product.domain}</span>
+                        <span className="product-card-price">
                           {Number.isFinite(product.lastPrice) ? formatMoney(product.lastPrice) : "n/a"}
                         </span>
+                      </span>
+                      <strong className="product-card-title">{shortTitle(product.title)}</strong>
+                      <span className="product-card-meta">
+                        <code>{product.asin}</code>
+                        {isActive ? <span>Selected</span> : <span>Open</span>}
                       </span>
                     </button>
                   );
                 })}
               </div>
-            ) : (
-              <p className="spotlight-note">No products matched your search.</p>
-            )}
-          </aside>
 
-          <article className="detail-pane">
+              {hasMoreProducts ? (
+                <button
+                  type="button"
+                  className="catalog-more"
+                  onClick={() => setVisibleProductCount((count) => count + PRODUCT_PAGE_SIZE)}
+                >
+                  Show {Math.min(PRODUCT_PAGE_SIZE, filteredProducts.length - visibleProducts.length)} More Products
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <p className="spotlight-note">No products matched your search.</p>
+          )}
+
+          <article className="detail-pane detail-workspace">
             {selectedProduct ? (
               <>
                 <div className="detail-head">
@@ -594,7 +680,7 @@ export default function PricesExplorer() {
                       </article>
                     </div>
 
-                    <PriceLineChart
+                    <PriceTimelineChart
                       points={visibleRows}
                       currency={displayCurrency}
                       rangeLabel={activeRange.label}
@@ -607,16 +693,16 @@ export default function PricesExplorer() {
                           ? `No tracked points were collected in ${activeRange.label}. Switch range or choose All to inspect all ${totalTrackedPoints} tracked points.`
                           : "Waiting for the first tracked price point."}
                     </p>
+
+                    <RecentPointsFeed points={feedRows} fallbackCurrency={displayCurrency} />
                   </>
                 ) : null}
               </>
             ) : (
-              <p className="spotlight-note">
-                Select a product to inspect its tracked price history.
-              </p>
+              <p className="spotlight-note">Select a product to inspect its tracked price history.</p>
             )}
           </article>
-        </div>
+        </>
       ) : null}
     </section>
   );
